@@ -1,0 +1,33 @@
+# Node
+node_modules/
+
+# Build output
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env files
+.env
+.env.*
+
+# Config
+config.json
+*.config.json
+
+# Playwright
+playwright-report/
+playwright/.cache/
+
+# Coverage
+coverage/
+
+# IDE
+.vscode/
+.DS_Store
+
+# OS
+Thumbs.db
