@@ -10,11 +10,11 @@ export interface Logger {
 export const createLogger = (): Logger => ({
   info: (message) => console.log(`[INFO]: ${message}`),
   log: (message) => console.log(message),
-  error: (message) => console.error(`[ERRO]: ${message}`),
+  error: (message) => console.error(`[ERROR]: ${message}`),
   summary: (summary) => {
     console.log("");
-    console.log("--- RESUMO DE EXECUCAO ---");
-    console.log(`Total de Modulos: ${summary.total}`);
+    console.log("--- EXECUTION SUMMARY ---");
+    console.log(`Total Modules: ${summary.total}`);
     console.log(`PASS: ${summary.passed}`);
     console.log(`FAIL: ${summary.failed}`);
     if (summary.warning > 0) {

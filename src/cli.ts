@@ -30,19 +30,19 @@ export const runCli = async (): Promise<void> => {
     ? path.resolve(process.cwd(), options.config)
     : undefined;
   if (!configPath) {
-    console.error("[ERRO]: --config is required");
+    console.error("[ERROR]: --config is required");
     process.exit(1);
   }
 
   const planId = options.planId ?? process.env.CONFORMANCE_PLAN_ID;
   if (!planId) {
-    console.error("[ERRO]: --plan-id or CONFORMANCE_PLAN_ID is required");
+    console.error("[ERROR]: --plan-id or CONFORMANCE_PLAN_ID is required");
     process.exit(1);
   }
 
   const token = options.token ?? process.env.CONFORMANCE_TOKEN;
   if (!token) {
-    console.error("[ERRO]: --token or CONFORMANCE_TOKEN is required");
+    console.error("[ERROR]: --token or CONFORMANCE_TOKEN is required");
     process.exit(1);
   }
 
@@ -52,16 +52,16 @@ export const runCli = async (): Promise<void> => {
   const headless = Boolean(options.headless);
 
   const logger = createLogger();
-  logger.info(`Conectando ao servidor: "${baseUrl}"`);
+  logger.info(`Connecting to server: "${baseUrl}"`);
 
   const planConfig = loadConfig(configPath);
   if (planConfig.modules.length === 0) {
-    console.error("[ERRO]: No test modules found in configuration file.");
+    console.error("[ERROR]: No test modules found in configuration file.");
     process.exit(1);
   }
 
-  logger.info(`Plano de Teste: ${path.basename(configPath)} (ID: ${planId})`);
-  logger.info(`Modulos a executar: ${planConfig.modules.length}`);
+  logger.info(`Test Plan: ${path.basename(configPath)} (ID: ${planId})`);
+  logger.info(`Modules to run: ${planConfig.modules.length}`);
 
   const api = new ConformanceApi({ baseUrl, token });
   const runner = new Runner({
@@ -85,7 +85,7 @@ export const runCli = async (): Promise<void> => {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`[ERRO]: ${message}`);
+    console.error(`[ERROR]: ${message}`);
     process.exit(1);
   }
 };

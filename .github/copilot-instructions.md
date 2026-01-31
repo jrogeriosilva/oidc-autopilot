@@ -24,7 +24,7 @@
 - Playwright browsers must be installed once: `npx playwright install --with-deps`.
 
 ## Project-specific conventions
-- Logging is intentionally plain and in Portuguese (see [src/core/logger.ts](src/core/logger.ts)); keep style consistent.
+- Logging is intentionally plain and in English (see [src/core/logger.ts](src/core/logger.ts)); keep style consistent.
 - Errors are surfaced as thrown `Error` instances; `cli.ts` is the central error-to-exit boundary.
 - HTTP calls use the shared `HttpClient` wrapper (see [src/core/httpClient.ts](src/core/httpClient.ts)) to enforce auth headers and timeouts.
 
