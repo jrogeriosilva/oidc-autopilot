@@ -6,6 +6,7 @@ import { captureFromObject } from "./capture";
 import { ActionExecutor } from "./actions";
 import { navigateWithPlaywright } from "./playwrightRunner";
 import { sleep } from "../utils/sleep";
+import { CONSTANTS } from "./constants";
 
 export class Runner {
   private readonly api: ConformanceApi;
@@ -183,6 +184,12 @@ export class Runner {
           captured,
           captureVars,
         });
+      }
+
+      // TODO: Playwright: Redirect the browser to callback url returned by the navigation step
+      if (state === "WAITING" && captured[CONSTANTS.CALLBACK_VARIABLE_NAME]) {
+        this.logger.log(`[${moduleName}]: Redirecting to callback URL: ${captured[CONSTANTS.CALLBACK_VARIABLE_NAME]}`);
+        await navigateWithPlaywright(captured[CONSTANTS.CALLBACK_VARIABLE_NAME], this.headless);
       }
 
       if (state === "FINISHED" || state === "INTERRUPTED") {
