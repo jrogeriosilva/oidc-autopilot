@@ -1,19 +1,11 @@
 import type { PlanConfig } from "../config/schema";
 import type { Logger } from "./logger";
-import type { ExecutionSummary, ModuleResult, TestResult, TestState } from "./types";
+import type { ExecutionSummary, ModuleResult, RunnerOptions, TestResult, TestState } from "./types";
 import { ConformanceApi } from "./conformanceApi";
 import { captureFromObject } from "./capture";
 import { ActionExecutor } from "./actions";
 import { navigateWithPlaywright } from "./playwrightRunner";
 import { sleep } from "../utils/sleep";
-
-export interface RunnerOptions {
-  api: ConformanceApi;
-  pollInterval: number;
-  timeout: number;
-  headless: boolean;
-  logger: Logger;
-}
 
 export class Runner {
   private readonly api: ConformanceApi;
@@ -53,6 +45,9 @@ export class Runner {
       headless: this.headless,
     });
 
+    /*
+      Execute each module in sequence
+    */
     for (const moduleConfig of config.modules) {
       const result = await this.executeModule({
         planId,
@@ -105,7 +100,7 @@ export class Runner {
     const moduleId = await this.api.registerModule(planId, moduleName);
     this.logger.log(`[${moduleName}]: Registering... OK (ID: ${moduleId})`);
     
-    const terminalState = await this.pollUntilTerminalWithActions({
+    const terminalState = await this.pollUntilTerminalState({
       moduleId,
       moduleName,
       captureVars,
@@ -130,31 +125,7 @@ export class Runner {
     };
   }
 
-  private async pollUntilState(
-    moduleId: string,
-    target: Set<TestState>,
-    captured: Record<string, string>,
-    captureVars: string[]
-  ): Promise<{ state: TestState; info: { status?: string; result?: string | null } } > {
-    const start = Date.now();
-
-    while (Date.now() - start < this.timeout * 1000) {
-      const info = await this.api.getModuleInfo(moduleId);
-      captureFromObject(info, captureVars, captured);
-      const state = ConformanceApi.toState(info.status);
-
-      if (target.has(state)) {
-        return { state, info };
-      }
-
-      this.logger.log(`[${moduleId}]: Polling... State: ${state}`);
-      await sleep(this.pollInterval * 1000);
-    }
-
-    throw new Error(`Timeout waiting for module ${moduleId}`);
-  }
-
-  private async pollUntilTerminalWithActions({
+  private async pollUntilTerminalState({
     moduleId,
     moduleName,
     captureVars,
@@ -184,6 +155,24 @@ export class Runner {
 
       this.logger.log(`[${moduleName}]: Polling... State: ${state}`);
 
+      // Navigate if in WAITING state and navigation not yet executed
+      if (state === "WAITING" && !executedWaitingNavigation()) {
+        this.logger.log(`[${moduleName}]: Fetching runner information...`);
+        const runnerInfo = await this.api.getRunnerInfo(moduleId);
+
+        this.logger.log(`[${moduleName}]: Running navigation...`);
+        const navigated = await this.navigateToUrl({
+          runnerInfo,
+          moduleName,
+          captured,
+          captureVars,
+        });
+        if (navigated) {
+          markWaitingNavigationExecuted();
+        }
+      }
+
+      // Execute actions if in WAITING state
       if (state === "WAITING" && actions.length > 0) {
         await this.tryExecuteActions({
           moduleId,
@@ -194,19 +183,6 @@ export class Runner {
           captured,
           captureVars,
         });
-      }
-
-      if (state === "WAITING" && !executedWaitingNavigation()) {
-        this.logger.log(`[${moduleName}]: Running waiting navigation...`);
-        const navigated = await this.tryExecuteWaitingNavigation({
-          moduleId,
-          moduleName,
-          captured,
-          captureVars,
-        });
-        if (navigated) {
-          markWaitingNavigationExecuted();
-        }
       }
 
       if (state === "FINISHED" || state === "INTERRUPTED") {
@@ -253,24 +229,22 @@ export class Runner {
     }
   }
 
-  private async tryExecuteWaitingNavigation({
-    moduleId,
+  private async navigateToUrl({
+    runnerInfo,
     moduleName,
     captured,
     captureVars,
   }: {
-    moduleId: string;
+    runnerInfo: any;
     moduleName: string;
     captured: Record<string, string>;
     captureVars: string[];
   }): Promise<boolean> {
-    this.logger.log(`[${moduleName}]: Fetching runner info for navigation...`);
-    const runnerInfo = await this.api.getRunnerInfo(moduleId);
     captureFromObject(runnerInfo, captureVars, captured);
 
     const browser = runnerInfo.browser;
     const directUrl = browser?.urls?.[0];
-    const methodUrl = browser?.urlsWithMethod?.find((entry) => {
+    const methodUrl = browser?.urlsWithMethod?.find((entry: any) => {
       return !entry.method || entry.method.toUpperCase() === "GET";
     })?.url;
     const targetUrl = directUrl ?? methodUrl;
@@ -279,7 +253,7 @@ export class Runner {
       const urls = browser?.urls?.length ? browser.urls.join(", ") : "(empty)";
       const urlsWithMethod = browser?.urlsWithMethod?.length
         ? browser.urlsWithMethod
-            .map((entry) => `${entry.method ?? "GET"} ${entry.url}`)
+            .map((entry: any) => `${entry.method ?? "GET"} ${entry.url}`)
             .join(", ")
         : "(empty)";
       this.logger.log(
@@ -288,9 +262,9 @@ export class Runner {
       return false;
     }
 
-    this.logger.log(`[${moduleName}]: Navigating to browser URL: ${targetUrl}`);
+    this.logger.log(`[${moduleName}]: Navigating to URL: ${targetUrl}`);
     const finalUrl = await navigateWithPlaywright(targetUrl, this.headless);
-    this.logger.log(`[${moduleName}]: Navigation completed for browser URL: ${finalUrl}`);
+    this.logger.log(`[${moduleName}]: Navigation completed for URL: ${finalUrl}`);
     return true;
   }
 

@@ -1,3 +1,6 @@
+import { ConformanceApi } from "./conformanceApi";
+import { Logger } from "./logger";
+
 export type TestState =
   | "CREATED"
   | "CONFIGURED"
@@ -32,4 +35,12 @@ export interface ExecutionSummary {
   skipped: number;
   interrupted: number;
   modules: ModuleResult[];
+}
+
+export interface RunnerOptions {
+  api: ConformanceApi;
+  pollInterval: number;
+  timeout: number;
+  headless: boolean;
+  logger: Logger;
 }

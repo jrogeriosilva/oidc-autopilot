@@ -5,7 +5,7 @@ export const navigateWithPlaywright = async (
   headless: boolean
 ): Promise<string> => {
   const browser = await chromium.launch({ headless });
-  const context = await browser.newContext();
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
 
   try {

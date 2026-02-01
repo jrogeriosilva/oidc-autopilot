@@ -41,7 +41,7 @@ export class ActionExecutor {
       : undefined;
 
     const response = await fetch(endpoint, {
-      method: action.method ?? "POST",
+      method: action.method,
       headers: {
         "Content-Type": "application/json",
         ...headers,
