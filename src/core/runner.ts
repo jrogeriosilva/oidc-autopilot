@@ -94,23 +94,23 @@ export class Runner {
     const moduleName = moduleConfig.name;
     const captured: Record<string, string> = {};
     const executedActions = new Set<string>();
-    let executedWaitingNavigation = false;
+    let isExecutedNavigation = false;
 
     this.logger.log(`[${moduleName}]: Registering...`);
-    const moduleId = await this.api.registerModule(planId, moduleName);
-    this.logger.log(`[${moduleName}]: Registering... OK (ID: ${moduleId})`);
+    const runnerId = await this.api.registerRunner(planId, moduleName);
+    this.logger.log(`[${moduleName}]: Registering... OK (ID: ${runnerId})`);
     
     const terminalState = await this.pollUntilTerminalState({
-      moduleId,
+      runnerId,
       moduleName,
       captureVars,
       captured,
       actions: moduleConfig.actions ?? [],
       actionExecutor,
       executedActions,
-      executedWaitingNavigation: () => executedWaitingNavigation,
-      markWaitingNavigationExecuted: () => {
-        executedWaitingNavigation = true;
+      isNavigationExecuted: () => isExecutedNavigation,
+      markNavigationExecuted: () => {
+        isExecutedNavigation = true;
       },
     });
 
@@ -118,7 +118,7 @@ export class Runner {
 
     return {
       name: moduleName,
-      moduleId,
+      runnerId,
       state: terminalState.state,
       result,
       captured,
@@ -126,39 +126,39 @@ export class Runner {
   }
 
   private async pollUntilTerminalState({
-    moduleId,
+    runnerId,
     moduleName,
     captureVars,
     captured,
     actions,
     actionExecutor,
     executedActions,
-    executedWaitingNavigation,
-    markWaitingNavigationExecuted,
+    isNavigationExecuted: isNavigationExecuted,
+    markNavigationExecuted: markNavigationExecuted,
   }: {
-    moduleId: string;
+    runnerId: string;
     moduleName: string;
     captureVars: string[];
     captured: Record<string, string>;
     actions: string[];
     actionExecutor: ActionExecutor;
     executedActions: Set<string>;
-    executedWaitingNavigation: () => boolean;
-    markWaitingNavigationExecuted: () => void;
+    isNavigationExecuted: () => boolean;
+    markNavigationExecuted: () => void;
   }): Promise<{ state: TestState; info: { status?: string; result?: string | null } } > {
     const start = Date.now();
 
     while (Date.now() - start < this.timeout * 1000) {
-      const info = await this.api.getModuleInfo(moduleId);
+      const info = await this.api.getModuleInfo(runnerId);
       captureFromObject(info, captureVars, captured);
       const state = ConformanceApi.toState(info.status);
 
       this.logger.log(`[${moduleName}]: Polling... State: ${state}`);
 
       // Navigate if in WAITING state and navigation not yet executed
-      if (state === "WAITING" && !executedWaitingNavigation()) {
+      if (state === "WAITING" && !isNavigationExecuted()) {
         this.logger.log(`[${moduleName}]: Fetching runner information...`);
-        const runnerInfo = await this.api.getRunnerInfo(moduleId);
+        const runnerInfo = await this.api.getRunnerInfo(runnerId);
 
         this.logger.log(`[${moduleName}]: Running navigation...`);
         const navigated = await this.navigateToUrl({
@@ -168,14 +168,14 @@ export class Runner {
           captureVars,
         });
         if (navigated) {
-          markWaitingNavigationExecuted();
+          markNavigationExecuted();
         }
       }
 
-      // Execute actions if in WAITING state
-      if (state === "WAITING" && actions.length > 0) {
+      // Execute actions after navigation
+      if (actions.length > 0 && state === "WAITING" && isNavigationExecuted()) {
         await this.tryExecuteActions({
-          moduleId,
+          runnerId,
           moduleName,
           actions,
           actionExecutor,
@@ -192,11 +192,11 @@ export class Runner {
       await sleep(this.pollInterval * 1000);
     }
 
-    throw new Error(`Timeout waiting for module ${moduleId}`);
+    throw new Error(`Timeout waiting for runner ${runnerId}`);
   }
 
   private async tryExecuteActions({
-    moduleId,
+    runnerId,
     moduleName,
     actions,
     actionExecutor,
@@ -204,7 +204,7 @@ export class Runner {
     captured,
     captureVars,
   }: {
-    moduleId: string;
+    runnerId: string;
     moduleName: string;
     actions: string[];
     actionExecutor: ActionExecutor;
@@ -212,7 +212,7 @@ export class Runner {
     captured: Record<string, string>;
     captureVars: string[];
   }): Promise<void> {
-    const logs = await this.api.getModuleLogs(moduleId);
+    const logs = await this.api.getModuleLogs(runnerId);
     captureFromObject(logs, captureVars, captured);
     this.logger.log(`[${moduleName}]: Logs retrieved for action execution.`);
 

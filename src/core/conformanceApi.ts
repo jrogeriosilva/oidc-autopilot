@@ -49,7 +49,7 @@ export class ConformanceApi {
     });
   }
 
-  async registerModule(planId: string, testName: string): Promise<string> {
+  async registerRunner(planId: string, testName: string): Promise<string> {
     const endpoint = this.client.buildUrl("api/runner");
     const url = new URL(endpoint);
     url.searchParams.set("test", testName);
@@ -68,8 +68,8 @@ export class ConformanceApi {
     return parsed.id;
   }
 
-  async getModuleInfo(moduleId: string): Promise<z.infer<typeof moduleInfoSchema>> {
-    const url = this.client.buildUrl(`api/info/${moduleId}`);
+  async getModuleInfo(runnerId: string): Promise<z.infer<typeof moduleInfoSchema>> {
+    const url = this.client.buildUrl(`api/info/${runnerId}`);
     const response = await this.client.requestJson<unknown>(
       url,
       {
@@ -81,8 +81,8 @@ export class ConformanceApi {
     return moduleInfoSchema.parse(response);
   }
 
-  async getRunnerInfo(moduleId: string): Promise<z.infer<typeof runnerInfoSchema>> {
-    const url = this.client.buildUrl(`api/runner/${moduleId}`);
+  async getRunnerInfo(runnerId: string): Promise<z.infer<typeof runnerInfoSchema>> {
+    const url = this.client.buildUrl(`api/runner/${runnerId}`);
     const response = await this.client.requestJson<unknown>(
       url,
       {
@@ -95,8 +95,8 @@ export class ConformanceApi {
     return runnerInfoSchema.parse(response);
   }
 
-  async getModuleLogs(moduleId: string): Promise<unknown[]> {
-    const url = this.client.buildUrl(`api/log/${moduleId}`);
+  async getModuleLogs(runnerId: string): Promise<unknown[]> {
+    const url = this.client.buildUrl(`api/log/${runnerId}`);
     const response = await this.client.requestJson<unknown>(
       url,
       {
@@ -112,8 +112,8 @@ export class ConformanceApi {
     return [];
   }
 
-  async startModule(moduleId: string): Promise<void> {
-    const url = this.client.buildUrl(`api/runner/${moduleId}`);
+  async startModule(runnerId: string): Promise<void> {
+    const url = this.client.buildUrl(`api/runner/${runnerId}`);
     await this.client.requestJson<unknown>(
       url,
       {

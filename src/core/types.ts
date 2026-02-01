@@ -19,7 +19,7 @@ export type TestResult =
 
 export interface ModuleResult {
   name: string;
-  moduleId: string;
+  runnerId: string;
   state: TestState;
   result: TestResult;
   errorMessage?: string;
