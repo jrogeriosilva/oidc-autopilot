@@ -1,12 +1,8 @@
 import type { ModuleConfig, PlanConfig } from "../config/schema";
 import type { Logger } from "./logger";
-import type { ExecutionSummary, ModuleResult, RunnerOptions, TestResult, TestState } from "./types";
-import type { RunnerInfo } from "./conformanceApi";
-import { captureFromObject } from "./capture";
+import type { ExecutionSummary, ModuleResult, RunnerOptions } from "./types";
 import { ActionExecutor } from "./actions";
-import { navigateWithPlaywright } from "./playwrightRunner";
-import { sleep } from "../utils/sleep";
-import { CONSTANTS } from "./constants";
+import { pollRunnerStatus } from "./runnerHelpers";
 
 export class Runner {
   private readonly api: RunnerOptions["api"];
@@ -104,7 +100,14 @@ export class Runner {
     });
     this.logger.log(`[${moduleName}]: Registering... OK (ID: ${runnerId})`);
     
-    const terminalState = await this.pollUntilTerminalState({
+    const terminalState = await pollRunnerStatus({
+      context: {
+        api: this.api,
+        pollInterval: this.pollInterval,
+        timeout: this.timeout,
+        headless: this.headless,
+        logger: this.logger,
+      },
       runnerId,
       moduleName,
       captureVars,
@@ -125,170 +128,6 @@ export class Runner {
       result: terminalState.info.result,
       captured,
     };
-  }
-
-  private async pollUntilTerminalState({
-    runnerId,
-    moduleName,
-    captureVars,
-    captured,
-    actions,
-    actionExecutor,
-    executedActions,
-    isNavigationExecuted: isNavigationExecuted,
-    markNavigationExecuted: markNavigationExecuted,
-  }: {
-    runnerId: string;
-    moduleName: string;
-    captureVars: string[];
-    captured: Record<string, string>;
-    actions: string[];
-    actionExecutor: ActionExecutor;
-    executedActions: Set<string>;
-    isNavigationExecuted: () => boolean;
-    markNavigationExecuted: () => void;
-  }): Promise<{ state: TestState; info: { status: TestState; result: TestResult } } > {
-    const start = Date.now();
-
-    while (Date.now() - start < this.timeout * 1000) {
-      const info = await this.api.getModuleInfo(runnerId, {
-        captureVars,
-        store: captured,
-      });
-      captureFromObject(info, captureVars, captured);
-      const state = info.status;
-
-      this.logger.log(`[${moduleName}]: Polling... State: ${state}`);
-
-      // Navigate if in WAITING state and navigation not yet executed
-      if (state === "WAITING" && !isNavigationExecuted()) {
-        this.logger.log(`[${moduleName}]: Fetching runner information...`);
-        const runnerInfo = await this.api.getRunnerInfo(runnerId, {
-          captureVars,
-          store: captured,
-        });
-
-        this.logger.log(`[${moduleName}]: Running navigation...`);
-        const navigated = await this.navigateToUrl({
-          runnerInfo,
-          moduleName,
-          captured,
-          captureVars,
-        });
-        if (navigated) {
-          markNavigationExecuted();
-        }
-      }
-
-      // Execute actions after navigation
-      if (actions.length > 0 && state === "WAITING" && isNavigationExecuted()) {
-        await this.tryExecuteActions({
-          runnerId,
-          moduleName,
-          actions,
-          actionExecutor,
-          executedActions,
-          captured,
-          captureVars,
-        });
-      }
-
-      // TODO: Playwright: Redirect the browser to callback url returned by the navigation step
-      if (state === "WAITING" && captured[CONSTANTS.CALLBACK_VARIABLE_NAME]) {
-        this.logger.log(`[${moduleName}]: Redirecting to callback URL: ${captured[CONSTANTS.CALLBACK_VARIABLE_NAME]}`);
-        const finalUrl = await navigateWithPlaywright(
-          captured[CONSTANTS.CALLBACK_VARIABLE_NAME],
-          this.headless
-        );
-        captureFromObject(finalUrl, captureVars, captured);
-      }
-
-      if (state === "FINISHED" || state === "INTERRUPTED") {
-        return { state, info };
-      }
-
-      await sleep(this.pollInterval * 1000);
-    }
-
-    throw new Error(`Timeout waiting for runner ${runnerId}`);
-  }
-
-  private async tryExecuteActions({
-    runnerId,
-    moduleName,
-    actions,
-    actionExecutor,
-    executedActions,
-    captured,
-    captureVars,
-  }: {
-    runnerId: string;
-    moduleName: string;
-    actions: string[];
-    actionExecutor: ActionExecutor;
-    executedActions: Set<string>;
-    captured: Record<string, string>;
-    captureVars: string[];
-  }): Promise<void> {
-    const logs = await this.api.getModuleLogs(runnerId, {
-      captureVars,
-      store: captured,
-    });
-    captureFromObject(logs, captureVars, captured);
-    this.logger.log(`[${moduleName}]: Logs retrieved for action execution.`);
-
-    for (const actionName of actions) {
-      if (executedActions.has(actionName)) {
-        continue;
-      }
-
-      this.logger.log(`[${moduleName}]: Executing action '${actionName}'...`);
-      const newlyCaptured = await actionExecutor.executeAction(actionName, captured);
-      Object.assign(captured, newlyCaptured);
-      executedActions.add(actionName);
-      this.logger.log(`[${moduleName}]: Action '${actionName}' completed.`);
-    }
-  }
-
-  private async navigateToUrl({
-    runnerInfo,
-    moduleName,
-    captured,
-    captureVars,
-  }: {
-    runnerInfo: RunnerInfo;
-    moduleName: string;
-    captured: Record<string, string>;
-    captureVars: string[];
-  }): Promise<boolean> {
-    captureFromObject(runnerInfo, captureVars, captured);
-
-    const browser = runnerInfo.browser;
-    const directUrl = browser.urls[0];
-    const methodUrl = browser.urlsWithMethod.find((entry) => {
-      return entry.method.toUpperCase() === "GET";
-    })?.url;
-    const targetUrl = directUrl ?? methodUrl;
-
-    if (!targetUrl) {
-      const urls = browser.urls.length ? browser.urls.join(", ") : "(empty)";
-      const urlsWithMethod = browser.urlsWithMethod.length
-        ? browser.urlsWithMethod
-            .map((entry) => `${entry.method} ${entry.url}`)
-            .join(", ")
-        : "(empty)";
-      this.logger.log(
-        `[${moduleName}]: No browser URL found. urls=${urls} urlsWithMethod=${urlsWithMethod}`
-      );
-      return false;
-    }
-
-    this.logger.log(`[${moduleName}]: Navigating to URL: ${targetUrl}`);
-    captureFromObject(targetUrl, captureVars, captured);
-    const finalUrl = await navigateWithPlaywright(targetUrl, this.headless);
-    captureFromObject(finalUrl, captureVars, captured);
-    this.logger.log(`[${moduleName}]: Navigation completed for URL: ${finalUrl}`);
-    return true;
   }
 
 }

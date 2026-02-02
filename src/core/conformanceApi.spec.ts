@@ -1,7 +1,7 @@
-describe("ConformanceApi", () => {
-	function setup() {
-		jest.resetModules();
+import { loadIsolatedModule } from "../testUtils/isolateModule";
 
+describe("ConformanceApi", () => {
+	const setup = () => {
 		const mockClient = {
 			buildUrl: jest.fn(),
 			getAuthHeaders: jest.fn(),
@@ -9,19 +9,20 @@ describe("ConformanceApi", () => {
 		};
 
 		const HttpClientMock = jest.fn().mockImplementation(() => mockClient);
-
-		let ConformanceApi: any;
-
-		jest.isolateModules(() => {
-			jest.doMock("./httpClient", () => ({
-				HttpClient: HttpClientMock,
-			}));
-
-			({ ConformanceApi } = require("./conformanceApi"));
-		});
+		const ConformanceApi = loadIsolatedModule(
+			() => {
+				jest.doMock("./httpClient", () => ({
+					HttpClient: HttpClientMock,
+				}));
+			},
+			() => require("./conformanceApi").ConformanceApi
+		);
 
 		return { ConformanceApi, HttpClientMock, mockClient };
-	}
+	};
+
+	const createApi = (ConformanceApi: any) =>
+		new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
 
 	test("registerRunner posts to api/runner with query params", async () => {
 		const { ConformanceApi, HttpClientMock, mockClient } = setup();
@@ -30,7 +31,7 @@ describe("ConformanceApi", () => {
 		mockClient.getAuthHeaders.mockReturnValue({ Authorization: "Bearer token" });
 		mockClient.requestJson.mockResolvedValue({ id: "runner-1" });
 
-		const api = new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
+		const api = createApi(ConformanceApi);
 		const capture = { captureVars: ["id"], store: {} };
 
 		const runnerId = await api.registerRunner("plan-1", "test-1", capture);
@@ -57,6 +58,20 @@ describe("ConformanceApi", () => {
 		expect(parsed.searchParams.get("test")).toBe("test-1");
 	});
 
+	test("registerRunner surfaces HTTP errors", async () => {
+		const { ConformanceApi, mockClient } = setup();
+
+		mockClient.buildUrl.mockReturnValue("https://example.com/api/runner");
+		mockClient.getAuthHeaders.mockReturnValue({ Authorization: "Bearer token" });
+		mockClient.requestJson.mockRejectedValue(new Error("HTTP 500: server error"));
+
+		const api = createApi(ConformanceApi);
+
+		await expect(api.registerRunner("plan-1", "test-1")).rejects.toThrow(
+			"HTTP 500: server error"
+		);
+	});
+
 	test("getModuleInfo parses response and applies defaults", async () => {
 		const { ConformanceApi, mockClient } = setup();
 
@@ -64,7 +79,7 @@ describe("ConformanceApi", () => {
 		mockClient.getAuthHeaders.mockReturnValue({ Authorization: "Bearer token" });
 		mockClient.requestJson.mockResolvedValue({});
 
-		const api = new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
+		const api = createApi(ConformanceApi);
 		const result = await api.getModuleInfo("runner-1");
 
 		expect(result.status).toBe("CREATED");
@@ -87,7 +102,7 @@ describe("ConformanceApi", () => {
 		mockClient.getAuthHeaders.mockReturnValue({ Authorization: "Bearer token" });
 		mockClient.requestJson.mockResolvedValue({ status: "waiting", result: "passed" });
 
-		const api = new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
+		const api = createApi(ConformanceApi);
 		const result = await api.getModuleInfo("runner-1");
 
 		expect(result.status).toBe("WAITING");
@@ -104,7 +119,7 @@ describe("ConformanceApi", () => {
 			browser: { urls: ["https://start"], urlsWithMethod: [{ url: "https://post" }] },
 		});
 
-		const api = new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
+		const api = createApi(ConformanceApi);
 		const result = await api.getRunnerInfo("runner-1");
 
 		expect(result.status).toBe("RUNNING");
@@ -122,7 +137,7 @@ describe("ConformanceApi", () => {
 			browser: { urlsWithMethod: [{ url: "https://start" }] },
 		});
 
-		const api = new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
+		const api = createApi(ConformanceApi);
 		const result = await api.getRunnerInfo("runner-1");
 
 		expect(result.browser?.urls).toEqual([]);
@@ -136,7 +151,7 @@ describe("ConformanceApi", () => {
 		mockClient.getAuthHeaders.mockReturnValue({ Authorization: "Bearer token" });
 		mockClient.requestJson.mockResolvedValueOnce([{ entry: 1 }]).mockResolvedValueOnce({});
 
-		const api = new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
+		const api = createApi(ConformanceApi);
 
 		const logs = await api.getModuleLogs("runner-1");
 		expect(logs).toEqual([{ entry: 1 }]);
@@ -152,7 +167,7 @@ describe("ConformanceApi", () => {
 		mockClient.getAuthHeaders.mockReturnValue({ Authorization: "Bearer token" });
 		mockClient.requestJson.mockResolvedValue({});
 
-		const api = new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
+		const api = createApi(ConformanceApi);
 
 		await api.startModule("runner-1");
 
@@ -166,5 +181,4 @@ describe("ConformanceApi", () => {
 			{ capture: undefined }
 		);
 	});
-
 });

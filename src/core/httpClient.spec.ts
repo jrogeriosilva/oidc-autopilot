@@ -68,6 +68,19 @@ describe("HttpClient", () => {
     ).rejects.toThrow("HTTP 500: server error");
   });
 
+  it("requestJson throws when expectedStatus is ok but response is not ok", async () => {
+    mockFetch({
+      status: 503,
+      ok: false,
+      text: async () => "service unavailable",
+    });
+
+    const client = new HttpClient({});
+    await expect(
+      client.requestJson("https://example.com/api", { method: "GET" }, "ok")
+    ).rejects.toThrow("HTTP 503: service unavailable");
+  });
+
   it("requestJson allows non-JSON when allowNonJson is true", async () => {
     mockFetch({
       status: 200,

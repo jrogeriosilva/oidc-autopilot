@@ -1,17 +1,26 @@
-describe("ActionExecutor", () => {
-	function setupActionExecutor() {
-		jest.resetModules();
+import { loadIsolatedModule } from "../testUtils/isolateModule";
 
+describe("ActionExecutor", () => {
+	const setupActionExecutor = () => {
 		const mocks = {
 			applyTemplate: jest.fn((value: unknown) => value),
 			captureFromObject: jest.fn(),
 			navigateWithPlaywright: jest.fn().mockResolvedValue("https://final.example"),
-			requestJson: jest.fn().mockImplementation(async (_url: string, _init: RequestInit, _status: unknown, options?: { capture?: { store: Record<string, string> } }) => {
-				if (options?.capture) {
-					options.capture.store.captured = "yes";
-				}
-				return { ok: true };
-			}),
+			requestJson: jest
+				.fn()
+				.mockImplementation(
+					async (
+						_url: string,
+						_init: RequestInit,
+						_status: unknown,
+						options?: { capture?: { store: Record<string, string> } }
+					) => {
+						if (options?.capture) {
+							options.capture.store.captured = "yes";
+						}
+						return { ok: true };
+					}
+				),
 			getAuthHeaders: jest.fn((headers?: Record<string, string>) => ({
 				"Content-Type": "application/json",
 				...(headers ?? {}),
@@ -19,26 +28,25 @@ describe("ActionExecutor", () => {
 			HttpClient: jest.fn(),
 		};
 
-		let ActionExecutor: any;
-
-		jest.isolateModules(() => {
-			jest.doMock("./template", () => ({ applyTemplate: mocks.applyTemplate }));
-			jest.doMock("./capture", () => ({ captureFromObject: mocks.captureFromObject }));
-			jest.doMock("./playwrightRunner", () => ({
-				navigateWithPlaywright: mocks.navigateWithPlaywright,
-			}));
-			jest.doMock("./httpClient", () => ({
-				HttpClient: mocks.HttpClient.mockImplementation(() => ({
-					requestJson: mocks.requestJson,
-					getAuthHeaders: mocks.getAuthHeaders,
-				})),
-			}));
-
-			ActionExecutor = require("./actions").ActionExecutor;
-		});
+		const ActionExecutor = loadIsolatedModule(
+			() => {
+				jest.doMock("./template", () => ({ applyTemplate: mocks.applyTemplate }));
+				jest.doMock("./capture", () => ({ captureFromObject: mocks.captureFromObject }));
+				jest.doMock("./playwrightRunner", () => ({
+					navigateWithPlaywright: mocks.navigateWithPlaywright,
+				}));
+				jest.doMock("./httpClient", () => ({
+					HttpClient: mocks.HttpClient.mockImplementation(() => ({
+						requestJson: mocks.requestJson,
+						getAuthHeaders: mocks.getAuthHeaders,
+					})),
+				}));
+			},
+			() => require("./actions").ActionExecutor
+		);
 
 		return { ActionExecutor, mocks };
-	}
+	};
 
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -138,6 +146,42 @@ describe("ActionExecutor", () => {
 			["captured"],
 			result
 		);
+		expect(result).toEqual({ captured: "yes" });
+	});
+
+	it("executes action without payload, headers, or callback", async () => {
+		const { ActionExecutor, mocks } = setupActionExecutor();
+
+		const action = {
+			name: "act2",
+			endpoint: "https://api.example/health",
+			method: "GET",
+		};
+
+		const executor = new ActionExecutor([action], {
+			captureVars: [],
+			headless: true,
+		});
+
+		const result = await executor.executeAction("act2", {});
+
+		expect(mocks.applyTemplate).toHaveBeenCalledWith(action.endpoint, {});
+		expect(mocks.requestJson).toHaveBeenCalledWith(
+			"https://api.example/health",
+			{
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: undefined,
+			},
+			"ok",
+			{
+				capture: { captureVars: [], store: result },
+				allowNonJson: true,
+			}
+		);
+		expect(mocks.navigateWithPlaywright).not.toHaveBeenCalled();
 		expect(result).toEqual({ captured: "yes" });
 	});
 });
