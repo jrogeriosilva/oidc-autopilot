@@ -35,6 +35,8 @@ const runnerInfoSchema = z.object({
     .optional(),
 });
 
+  export type RunnerInfo = z.infer<typeof runnerInfoSchema>;
+
 const registerResponseSchema = z.object({
   id: z.string().min(1),
 });

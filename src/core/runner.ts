@@ -1,7 +1,7 @@
-import type { PlanConfig } from "../config/schema";
+import type { ModuleConfig, PlanConfig } from "../config/schema";
 import type { Logger } from "./logger";
 import type { ExecutionSummary, ModuleResult, RunnerOptions, TestResult, TestState } from "./types";
-import { ConformanceApi } from "./conformanceApi";
+import { ConformanceApi, type RunnerInfo } from "./conformanceApi";
 import { captureFromObject } from "./capture";
 import { ActionExecutor } from "./actions";
 import { navigateWithPlaywright } from "./playwrightRunner";
@@ -88,7 +88,7 @@ export class Runner {
     captureVars,
   }: {
     planId: string;
-    moduleConfig: { name: string; actions?: string[] };
+    moduleConfig: ModuleConfig;
     actionExecutor: ActionExecutor;
     captureVars: string[];
   }): Promise<ModuleResult> {
@@ -258,7 +258,7 @@ export class Runner {
     captured,
     captureVars,
   }: {
-    runnerInfo: any;
+    runnerInfo: RunnerInfo;
     moduleName: string;
     captured: Record<string, string>;
     captureVars: string[];
@@ -267,7 +267,7 @@ export class Runner {
 
     const browser = runnerInfo.browser;
     const directUrl = browser?.urls?.[0];
-    const methodUrl = browser?.urlsWithMethod?.find((entry: any) => {
+    const methodUrl = browser?.urlsWithMethod?.find((entry) => {
       return !entry.method || entry.method.toUpperCase() === "GET";
     })?.url;
     const targetUrl = directUrl ?? methodUrl;
