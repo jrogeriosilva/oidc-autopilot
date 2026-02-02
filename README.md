@@ -1,4 +1,4 @@
-# Openid Conformance Automation Cli
+# OpenID Conformance Automation CLI
 
 [<img src="https://badges.ws/badge/Version-0.7.0-red" />](https://github.com/jrogeriosilva/openid-conformance-automation-cli)
 [<img src="https://badges.ws/badge/Status-Beta-green" />](https://github.com/jrogeriosilva/openid-conformance-automation-cli)
