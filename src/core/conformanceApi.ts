@@ -1,16 +1,39 @@
 import { z } from "zod";
 import { HttpClient, type CaptureContext } from "./httpClient";
-import type { TestState } from "./types";
 
 export interface ConformanceApiOptions {
   baseUrl: string;
   token: string;
 }
 
+const testStateSchema = z.enum([
+  "CREATED",
+  "CONFIGURED",
+  "WAITING",
+  "RUNNING",
+  "FINISHED",
+  "INTERRUPTED",
+]);
+
+const testResultSchema = z.enum([
+  "PASSED",
+  "FAILED",
+  "WARNING",
+  "SKIPPED",
+  "REVIEW",
+  "UNKNOWN",
+]);
+
 const moduleInfoSchema = z.object({
   id: z.string().optional(),
-  status: z.string().optional().default("CREATED"),
-  result: z.string().optional().nullable(),
+  status: z.preprocess(
+    (value) => (typeof value === "string" ? value.toUpperCase() : value),
+    testStateSchema
+  ).catch("CREATED"),
+  result: z.preprocess(
+    (value) => (typeof value === "string" ? value.toUpperCase() : value),
+    testResultSchema
+  ).catch("UNKNOWN"),
   redirect_to: z.string().optional(),
   browser: z.record(z.unknown()).optional(),
   expose: z.array(z.record(z.unknown())).optional(),
@@ -18,24 +41,29 @@ const moduleInfoSchema = z.object({
 
 const runnerInfoSchema = z.object({
   id: z.string().optional(),
-  status: z.string().optional(),
+  status: z.preprocess(
+    (value) => (typeof value === "string" ? value.toUpperCase() : value),
+    testStateSchema
+  ).catch("CREATED"),
   result: z.string().optional().nullable(),
   browser: z
     .object({
-      urls: z.array(z.string()).optional(),
+      urls: z.array(z.string()).default([]),
       urlsWithMethod: z
         .array(
           z.object({
             url: z.string().min(1),
-            method: z.string().min(1).optional(),
+            method: z.string().min(1).optional().default("GET"),
           })
         )
-        .optional(),
+        .default([]),
     })
-    .optional(),
+    .default({ urls: [], urlsWithMethod: [] }),
 });
 
-  export type RunnerInfo = z.infer<typeof runnerInfoSchema>;
+export type RunnerInfo = z.infer<typeof runnerInfoSchema>;
+
+const moduleLogsSchema = z.array(z.unknown()).catch([]);
 
 const registerResponseSchema = z.object({
   id: z.string().min(1),
@@ -122,10 +150,7 @@ export class ConformanceApi {
       { capture }
     );
 
-    if (Array.isArray(response)) {
-      return response;
-    }
-    return [];
+    return moduleLogsSchema.parse(response);
   }
 
   async startModule(runnerId: string, capture?: CaptureContext): Promise<void> {
@@ -141,17 +166,4 @@ export class ConformanceApi {
     );
   }
 
-  static toState(value: string | undefined): TestState {
-    switch (value) {
-      case "CONFIGURED":
-      case "WAITING":
-      case "RUNNING":
-      case "FINISHED":
-      case "INTERRUPTED":
-      case "CREATED":
-        return value;
-      default:
-        return "CREATED";
-    }
-  }
 }

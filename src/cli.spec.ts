@@ -147,6 +147,19 @@ describe("runCli", () => {
     });
   });
 
+  it("uses default polling and timeout values", async () => {
+    setArgv(["--config", "./config.json", "--plan-id", "p1", "--token", "t1"]);
+
+    await runCli();
+
+    expect(MockedRunner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pollInterval: 5,
+        timeout: 240,
+      })
+    );
+  });
+
   it("exits when summary has failures", async () => {
     MockedRunner.mockImplementation((() => ({
       executePlan: jest.fn().mockResolvedValue({

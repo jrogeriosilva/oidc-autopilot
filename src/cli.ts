@@ -5,6 +5,7 @@ import { loadConfig } from "./config/loadConfig";
 import { ConformanceApi } from "./core/conformanceApi";
 import { Runner } from "./core/runner";
 import { createLogger } from "./core/logger";
+import { CONSTANTS } from "./core/constants";
 
 const DEFAULT_SERVER = "https://www.certification.openid.net";
 
@@ -19,8 +20,16 @@ export const runCli = async (): Promise<void> => {
     .option("-p, --plan-id <id>", "Conformance plan id")
     .option("-s, --base-url <url>", "Conformance server base URL")
     .option("-t, --token <token>", "Bearer token for API")
-    .option("--poll-interval <seconds>", "Polling interval in seconds", "5")
-    .option("--timeout <seconds>", "Polling timeout in seconds", "240")
+    .option(
+      "--poll-interval <seconds>",
+      "Polling interval in seconds",
+      String(CONSTANTS.POLL_INTERVAL_SECONDS_DEFAULT)
+    )
+    .option(
+      "--timeout <seconds>",
+      "Polling timeout in seconds",
+      String(CONSTANTS.TIMEOUT_SECONDS_DEFAULT)
+    )
     .option("--no-headless", "Run Playwright with a visible browser")
     .parse(process.argv);
 

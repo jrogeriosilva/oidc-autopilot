@@ -20,9 +20,6 @@ describe("Runner", () => {
       jest.doMock("./constants", () => ({
         CONSTANTS: { CALLBACK_VARIABLE_NAME: "callbackUrl" },
       }));
-      jest.doMock("./conformanceApi", () => ({
-        ConformanceApi: { toState: (status: string) => status },
-      }));
       jest.doMock("./actions", () => ({ ActionExecutor: mocks.ActionExecutor }));
 
       Runner = require("./runner").Runner;
@@ -91,10 +88,10 @@ describe("Runner", () => {
       registerRunner: jest.fn().mockResolvedValue("r1"),
       getModuleInfo: jest
         .fn()
-        .mockResolvedValueOnce({ status: "WAITING", result: null })
+        .mockResolvedValueOnce({ status: "WAITING", result: "UNKNOWN" })
         .mockResolvedValueOnce({ status: "FINISHED", result: "PASSED" }),
       getRunnerInfo: jest.fn().mockResolvedValue({
-        browser: { urls: ["http://start"] },
+        browser: { urls: ["http://start"], urlsWithMethod: [] },
       }),
       getModuleLogs: jest.fn().mockResolvedValue({ entries: [] }),
     };
@@ -135,7 +132,7 @@ describe("Runner", () => {
       registerRunner: jest.fn().mockResolvedValue("r1"),
       getModuleInfo: jest
         .fn()
-        .mockResolvedValueOnce({ status: "WAITING", result: null })
+        .mockResolvedValueOnce({ status: "WAITING", result: "UNKNOWN" })
         .mockResolvedValueOnce({ status: "FINISHED", result: "PASSED" }),
       getRunnerInfo: jest.fn().mockResolvedValue({
         browser: { urls: [], urlsWithMethod: [] },

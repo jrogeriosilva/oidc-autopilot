@@ -11,7 +11,6 @@ describe("ConformanceApi", () => {
 		const HttpClientMock = jest.fn().mockImplementation(() => mockClient);
 
 		let ConformanceApi: any;
-		let toState: any;
 
 		jest.isolateModules(() => {
 			jest.doMock("./httpClient", () => ({
@@ -19,10 +18,9 @@ describe("ConformanceApi", () => {
 			}));
 
 			({ ConformanceApi } = require("./conformanceApi"));
-			({ toState } = require("./conformanceApi").ConformanceApi);
 		});
 
-		return { ConformanceApi, toState, HttpClientMock, mockClient };
+		return { ConformanceApi, HttpClientMock, mockClient };
 	}
 
 	test("registerRunner posts to api/runner with query params", async () => {
@@ -70,6 +68,7 @@ describe("ConformanceApi", () => {
 		const result = await api.getModuleInfo("runner-1");
 
 		expect(result.status).toBe("CREATED");
+		expect(result.result).toBe("UNKNOWN");
 		expect(mockClient.requestJson).toHaveBeenCalledWith(
 			"https://example.com/api/info/runner-1",
 			{
@@ -79,6 +78,20 @@ describe("ConformanceApi", () => {
 			200,
 			{ capture: undefined }
 		);
+	});
+
+	test("getModuleInfo normalizes status and result", async () => {
+		const { ConformanceApi, mockClient } = setup();
+
+		mockClient.buildUrl.mockReturnValue("https://example.com/api/info/runner-1");
+		mockClient.getAuthHeaders.mockReturnValue({ Authorization: "Bearer token" });
+		mockClient.requestJson.mockResolvedValue({ status: "waiting", result: "passed" });
+
+		const api = new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
+		const result = await api.getModuleInfo("runner-1");
+
+		expect(result.status).toBe("WAITING");
+		expect(result.result).toBe("PASSED");
 	});
 
 	test("getRunnerInfo returns parsed runner info", async () => {
@@ -97,6 +110,23 @@ describe("ConformanceApi", () => {
 		expect(result.status).toBe("RUNNING");
 		expect(result.browser?.urls).toEqual(["https://start"]);
 		expect(result.browser?.urlsWithMethod?.[0].url).toBe("https://post");
+	});
+
+	test("getRunnerInfo applies browser defaults", async () => {
+		const { ConformanceApi, mockClient } = setup();
+
+		mockClient.buildUrl.mockReturnValue("https://example.com/api/runner/runner-1");
+		mockClient.getAuthHeaders.mockReturnValue({ Authorization: "Bearer token" });
+		mockClient.requestJson.mockResolvedValue({
+			status: "WAITING",
+			browser: { urlsWithMethod: [{ url: "https://start" }] },
+		});
+
+		const api = new ConformanceApi({ baseUrl: "https://example.com", token: "token" });
+		const result = await api.getRunnerInfo("runner-1");
+
+		expect(result.browser?.urls).toEqual([]);
+		expect(result.browser?.urlsWithMethod?.[0].method).toBe("GET");
 	});
 
 	test("getModuleLogs returns logs array only when response is array", async () => {
@@ -137,11 +167,4 @@ describe("ConformanceApi", () => {
 		);
 	});
 
-	test("toState returns default for unknown values", () => {
-		const { toState } = setup();
-
-		expect(toState("WAITING")).toBe("WAITING");
-		expect(toState("UNKNOWN")).toBe("CREATED");
-		expect(toState(undefined)).toBe("CREATED");
-	});
 });

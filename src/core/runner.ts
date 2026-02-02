@@ -1,7 +1,7 @@
 import type { ModuleConfig, PlanConfig } from "../config/schema";
 import type { Logger } from "./logger";
 import type { ExecutionSummary, ModuleResult, RunnerOptions, TestResult, TestState } from "./types";
-import { ConformanceApi, type RunnerInfo } from "./conformanceApi";
+import type { RunnerInfo } from "./conformanceApi";
 import { captureFromObject } from "./capture";
 import { ActionExecutor } from "./actions";
 import { navigateWithPlaywright } from "./playwrightRunner";
@@ -9,7 +9,7 @@ import { sleep } from "../utils/sleep";
 import { CONSTANTS } from "./constants";
 
 export class Runner {
-  private readonly api: ConformanceApi;
+  private readonly api: RunnerOptions["api"];
   private readonly pollInterval: number;
   private readonly timeout: number;
   private readonly headless: boolean;
@@ -118,13 +118,11 @@ export class Runner {
       },
     });
 
-    const result: TestResult = this.toResult(terminalState.info.result ?? undefined);
-
     return {
       name: moduleName,
       runnerId,
       state: terminalState.state,
-      result,
+      result: terminalState.info.result,
       captured,
     };
   }
@@ -149,7 +147,7 @@ export class Runner {
     executedActions: Set<string>;
     isNavigationExecuted: () => boolean;
     markNavigationExecuted: () => void;
-  }): Promise<{ state: TestState; info: { status?: string; result?: string | null } } > {
+  }): Promise<{ state: TestState; info: { status: TestState; result: TestResult } } > {
     const start = Date.now();
 
     while (Date.now() - start < this.timeout * 1000) {
@@ -158,7 +156,7 @@ export class Runner {
         store: captured,
       });
       captureFromObject(info, captureVars, captured);
-      const state = ConformanceApi.toState(info.status);
+      const state = info.status;
 
       this.logger.log(`[${moduleName}]: Polling... State: ${state}`);
 
@@ -266,17 +264,17 @@ export class Runner {
     captureFromObject(runnerInfo, captureVars, captured);
 
     const browser = runnerInfo.browser;
-    const directUrl = browser?.urls?.[0];
-    const methodUrl = browser?.urlsWithMethod?.find((entry) => {
-      return !entry.method || entry.method.toUpperCase() === "GET";
+    const directUrl = browser.urls[0];
+    const methodUrl = browser.urlsWithMethod.find((entry) => {
+      return entry.method.toUpperCase() === "GET";
     })?.url;
     const targetUrl = directUrl ?? methodUrl;
 
     if (!targetUrl) {
-      const urls = browser?.urls?.length ? browser.urls.join(", ") : "(empty)";
-      const urlsWithMethod = browser?.urlsWithMethod?.length
+      const urls = browser.urls.length ? browser.urls.join(", ") : "(empty)";
+      const urlsWithMethod = browser.urlsWithMethod.length
         ? browser.urlsWithMethod
-            .map((entry: any) => `${entry.method ?? "GET"} ${entry.url}`)
+            .map((entry) => `${entry.method} ${entry.url}`)
             .join(", ")
         : "(empty)";
       this.logger.log(
@@ -293,24 +291,4 @@ export class Runner {
     return true;
   }
 
-  private toResult(result?: string | null): TestResult {
-    if (!result) {
-      return "UNKNOWN";
-    }
-
-    switch (result.toUpperCase()) {
-      case "PASSED":
-        return "PASSED";
-      case "FAILED":
-        return "FAILED";
-      case "WARNING":
-        return "WARNING";
-      case "SKIPPED":
-        return "SKIPPED";
-      case "REVIEW":
-        return "REVIEW";
-      default:
-        return "UNKNOWN";
-    }
-  }
 }
