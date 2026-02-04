@@ -1,106 +1,357 @@
 # OpenID Conformance Automation CLI
 
-[<img src="https://badges.ws/badge/Version-0.1.0-red" />](https://github.com/jrogeriosilva/openid-conformance-automation-cli)
-[<img src="https://badges.ws/badge/Status-Beta-green" />](https://github.com/jrogeriosilva/openid-conformance-automation-cli)
+[![Version](https://badges.ws/badge/Version-0.1.0-blue)](https://github.com/jrogeriosilva/openid-conformance-automation-cli)
+[![Status](https://badges.ws/badge/Status-Beta-green)](https://github.com/jrogeriosilva/openid-conformance-automation-cli)
+[![License](https://badges.ws/badge/License-MIT-yellow)](./LICENSE)
+[![Node.js](https://badges.ws/badge/Node.js-18+-339933)](https://nodejs.org/)
 
-<img width="540" height="196" alt="image" src="https://github.com/user-attachments/assets/98921412-d18f-4813-968b-58b0a48981ec" />
+<img width="540" height="196" alt="OpenID Conformance Automation CLI" src="https://github.com/user-attachments/assets/98921412-d18f-4813-968b-58b0a48981ec" />
 
-CLI tool to automate OpenID Connect Conformance Suite tests using a JSON configuration with dynamic actions and variable capture.
+A powerful CLI tool that automates [OpenID Connect Conformance Suite](https://www.certification.openid.net) tests using JSON configuration with dynamic actions and variable capture. Designed to streamline certification testing workflows for OpenID Connect implementations.
+
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+  - [Configuration File Structure](#configuration-file-structure)
+  - [Variable Capture](#variable-capture)
+  - [Templating](#templating)
+  - [Actions](#actions)
+- [CLI Usage](#cli-usage)
+  - [Options](#options)
+  - [Environment Variables](#environment-variables)
+- [Execution Flow](#execution-flow)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Automated Test Execution** | Sequentially execute multiple OpenID conformance test modules |
+| **Dynamic Variable Capture** | Automatically extract variables from API responses, URLs, and redirects |
+| **Template Interpolation** | Use `{{variable}}` placeholders in endpoints, payloads, and headers |
+| **Browser Automation** | Handle OAuth/OIDC flows automatically using Playwright |
+| **Custom Actions** | Execute HTTP requests when tests enter WAITING state |
+| **Status Polling** | Configurable polling intervals and timeouts |
+| **Detailed Logging** | Comprehensive execution logs and test result summaries |
 
 ## Requirements
 
-- Node.js 18+
-- Playwright browsers (installed after npm install)
+- **Node.js** 18 or higher
+- **npm** or **yarn**
+- Playwright-supported browsers (installed automatically)
 
-## Install
+## Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/jrogeriosilva/openid-conformance-automation-cli.git
+cd openid-conformance-automation-cli
+```
+
+2. Install dependencies:
 
 ```bash
 npm install
 ```
 
-Install Playwright browsers:
+3. Install Playwright browsers:
 
 ```bash
 npx playwright install --with-deps
 ```
 
-## Configuration
+4. Build the project:
 
-The CLI expects a JSON file with this shape:
+```bash
+npm run build
+```
+
+## Quick Start
+
+1. Copy the environment example file and configure your credentials:
+
+```bash
+cp env.example .env
+# Edit .env with your CONFORMANCE_TOKEN
+```
+
+2. Create a configuration file (e.g., `config.json`):
 
 ```json
 {
-  "capture_vars": ["access_token", "session_id", "consent_id", "redirect_to"],
+  "capture_vars": ["consent_id", "redirect_to"],
   "actions": [
     {
       "name": "approve_consent",
-      "endpoint": "https://bank.example.com/api/consent/{{consent_id}}/approve",
-      "method": "POST",
-      "payload": { "session_id": "{{session_id}}" },
-      "headers": { "Authorization": "Bearer {{access_token}}" },
+      "endpoint": "https://your-bank-api.com/consent/{{consent_id}}/approve",
+      "method": "POST"
     }
   ],
   "modules": [
     {
-      "name": "fapi1-advanced-final-ensure-expired-request-object-fails",
+      "name": "fapi1-advanced-final-ensure-request-object-signature-algorithm-is-valid",
       "actions": ["approve_consent"]
     }
   ]
 }
 ```
 
-Notes:
-- `capture_vars` are extracted from API responses and URLs.
-- `actions` are executed when a module is in `WAITING` state.
-- Templating uses `{{var}}` placeholders.
-
-## Environment Variables
-
-- `CONFORMANCE_TOKEN` (required) - Bearer token for API auth
-- `CONFORMANCE_SERVER` (optional) - Defaults to https://www.certification.openid.net
-- `CONFORMANCE_PLAN_ID` (optional) - Used if `--plan-id` is not provided
-
-## Usage
+3. Run the CLI:
 
 ```bash
-npm run build
-node dist/index.js --config ./config.json --plan-id <PLAN_ID> --token <TOKEN>
+node dist/index.js --config ./config.json --plan-id <YOUR_PLAN_ID>
 ```
 
-Or use environment variables:
+## Configuration
+
+### Configuration File Structure
+
+The CLI expects a JSON configuration file with the following structure:
+
+```json
+{
+  "capture_vars": ["var1", "var2", "..."],
+  "actions": [
+    {
+      "name": "action_name",
+      "endpoint": "https://api.example.com/{{var1}}/path",
+      "method": "POST",
+      "payload": { "key": "{{var2}}" },
+      "headers": { "Authorization": "Bearer {{token}}" },
+      "callback_to": "https://callback.url/path"
+    }
+  ],
+  "modules": [
+    {
+      "name": "conformance-test-module-name",
+      "actions": ["action_name"]
+    }
+  ]
+}
+```
+
+### Variable Capture
+
+The `capture_vars` array defines which variables to automatically extract during test execution. Variables are captured from:
+
+- **API Response Bodies**: JSON fields matching variable names
+- **URL Query Parameters**: Parameters in redirect URLs
+- **Response Headers**: Header values during HTTP exchanges
+
+Example:
+```json
+{
+  "capture_vars": ["access_token", "session_id", "consent_id", "redirect_to"]
+}
+```
+
+### Templating
+
+Use `{{variable_name}}` syntax to reference captured variables anywhere in your configuration:
+
+```json
+{
+  "endpoint": "https://api.example.com/consent/{{consent_id}}/approve",
+  "headers": {
+    "Authorization": "Bearer {{access_token}}"
+  },
+  "payload": {
+    "session": "{{session_id}}"
+  }
+}
+```
+
+Variables are interpolated at runtime with the values captured during execution.
+
+### Actions
+
+Actions define HTTP requests to execute when a test module enters the `WAITING` state:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Unique identifier for the action |
+| `endpoint` | string | Yes | URL to send the request (supports templating) |
+| `method` | string | Yes | HTTP method (`GET`, `POST`, etc.) |
+| `payload` | object | No | Request body (supports templating) |
+| `headers` | object | No | Custom headers (supports templating) |
+| `callback_to` | string | No | URL to navigate after action completes |
+
+## CLI Usage
 
 ```bash
-CONFORMANCE_TOKEN=your-token \
-CONFORMANCE_PLAN_ID=your-plan-id \
-node dist/index.js --config ./config.json
+node dist/index.js --config <path> [options]
 ```
 
 ### Options
 
-- `--config <path>`: Path to config JSON file (required)
-- `--plan-id <id>`: Conformance plan ID (required if env not set)
-- `--token <token>`: API token (required if env not set)
-- `--base-url <url>`: Conformance base URL
-- `--poll-interval <seconds>`: Polling interval (default: 5)
-- `--timeout <seconds>`: Polling timeout (default: 240)
-- `--no-headless`: Run Playwright with a visible browser
+| Option | Required | Default | Description |
+|--------|----------|---------|-------------|
+| `--config <path>` | Yes | - | Path to configuration JSON file |
+| `--plan-id <id>` | Yes* | `CONFORMANCE_PLAN_ID` env | OpenID conformance test plan ID |
+| `--token <token>` | Yes* | `CONFORMANCE_TOKEN` env | Bearer token for API authentication |
+| `--base-url <url>` | No | `https://www.certification.openid.net` | Conformance server base URL |
+| `--poll-interval <sec>` | No | `5` | Seconds between status checks |
+| `--timeout <sec>` | No | `240` | Maximum seconds to wait for test completion |
+| `--no-headless` | No | `false` | Show browser window during execution |
+
+*Required if not set via environment variable
+
+### Environment Variables
+
+Create a `.env` file in the project root (see `env.example`):
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `CONFORMANCE_TOKEN` | Yes | Bearer token for OpenID Conformance API authentication |
+| `CONFORMANCE_SERVER` | No | Custom conformance server URL |
+| `CONFORMANCE_PLAN_ID` | No | Default plan ID (overridden by `--plan-id`) |
 
 ## Execution Flow
 
-1. Register module: POST `api/runner?test={name}&plan={id}`
-2. Poll for `CONFIGURED` or terminal state.
-3. Start test: POST `api/runner/{module_id}` if `CONFIGURED`.
-4. Poll until `FINISHED` or `INTERRUPTED`.
-5. If a module enters `WAITING`, execute configured actions.
+The CLI follows this execution flow for each test module:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Test Execution Flow                        │
+└─────────────────────────────────────────────────────────────────┘
+
+1. Register Module
+   POST /api/runner?test={module_name}&plan={plan_id}
+   └── Returns: runner_id
+              │
+              ▼
+2. Poll for CONFIGURED State
+   GET /api/info/{runner_id}
+   └── Repeat every {poll_interval} seconds
+              │
+              ▼
+3. Start Test
+   POST /api/runner/{runner_id}
+              │
+              ▼
+4. Poll Until Terminal State
+   GET /api/info/{runner_id}
+              │
+   ┌──────────┴──────────┐
+   │                     │
+   ▼                     ▼
+WAITING              FINISHED/INTERRUPTED
+   │                     │
+   ▼                     ▼
+Execute Actions      Return Result
+   │
+   ├── Navigate browser to test URL
+   ├── Execute configured HTTP actions
+   └── Capture variables from responses
+              │
+              └──────► Continue polling
+```
+
+**State Definitions:**
+
+| State | Description |
+|-------|-------------|
+| `CREATED` | Module registered, waiting for configuration |
+| `CONFIGURED` | Ready to start execution |
+| `RUNNING` | Test in progress |
+| `WAITING` | Test paused, waiting for external interaction |
+| `FINISHED` | Test completed successfully |
+| `INTERRUPTED` | Test stopped due to error or timeout |
 
 ## Development
 
-```bash
-npm run dev -- --config ./example.config.json --plan-id <PLAN_ID> --token <TOKEN>
-```
-
-## Tests
+### Available Scripts
 
 ```bash
+# Development mode with hot reload
+npm run dev -- --config ./config.json --plan-id <ID> --token <TOKEN>
+
+# Build for production
+npm run build
+
+# Run tests
 npm test
+
+# Start built application
+npm start -- --config ./config.json --plan-id <ID>
 ```
+
+### Project Structure
+
+```
+src/
+├── index.ts              # Entry point
+├── cli.ts                # CLI argument parsing
+├── config/
+│   ├── loadConfig.ts     # Configuration loader
+│   └── schema.ts         # Zod validation schemas
+├── core/
+│   ├── runner.ts         # Main execution orchestrator
+│   ├── runnerHelpers.ts  # State polling & action handling
+│   ├── conformanceApi.ts # OpenID Conformance API client
+│   ├── httpClient.ts     # HTTP client with variable capture
+│   ├── actions.ts        # Action execution logic
+│   ├── capture.ts        # Variable extraction
+│   ├── template.ts       # Template interpolation
+│   ├── playwrightRunner.ts # Browser automation
+│   └── logger.ts         # Logging utilities
+└── utils/
+    └── sleep.ts          # Async sleep utility
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Browser fails to launch**
+```bash
+# Reinstall Playwright browsers
+npx playwright install --with-deps
+```
+
+**Authentication errors**
+- Verify your `CONFORMANCE_TOKEN` is valid and not expired
+- Check that the token has the required permissions for the test plan
+
+**Tests timing out**
+- Increase `--timeout` value for longer-running tests
+- Check network connectivity to the conformance server
+- Verify the test module name is correct
+
+**Variable capture not working**
+- Ensure variable names in `capture_vars` match exactly the field names in responses
+- Check the CLI logs for captured values during execution
+
+### Debug Mode
+
+Run with visible browser to debug automation issues:
+
+```bash
+node dist/index.js --config ./config.json --plan-id <ID> --no-headless
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+Built with TypeScript, Playwright, and Zod.
