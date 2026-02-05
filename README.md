@@ -1,13 +1,13 @@
-# OpenID Conformance Automation CLI
+# oidc-autopilot
 
-[![Version](https://badges.ws/badge/Version-0.1.0-blue)](https://github.com/jrogeriosilva/openid-conformance-automation-cli)
-[![Status](https://badges.ws/badge/Status-Beta-green)](https://github.com/jrogeriosilva/openid-conformance-automation-cli)
+[![Version](https://badges.ws/badge/Version-0.1.0-blue)](https://github.com/jrogeriosilva/oidc-autopilot)
+[![Status](https://badges.ws/badge/Status-Beta-green)](https://github.com/jrogeriosilva/oidc-autopilot)
 [![License](https://badges.ws/badge/License-MIT-yellow)](./LICENSE)
 [![Node.js](https://badges.ws/badge/Node.js-18+-339933)](https://nodejs.org/)
 
-<img width="540" height="196" alt="OpenID Conformance Automation CLI" src="https://github.com/user-attachments/assets/98921412-d18f-4813-968b-58b0a48981ec" />
+<img width="540" height="196" alt="oidc-autopilot" src="https://github.com/user-attachments/assets/98921412-d18f-4813-968b-58b0a48981ec" />
 
-A powerful CLI tool that automates [OpenID Connect Conformance Suite](https://www.certification.openid.net) tests using JSON configuration with dynamic actions and variable capture. Designed to streamline certification testing workflows for OpenID Connect implementations.
+**oidc-autopilot** automates [OpenID Connect Conformance Suite](https://www.certification.openid.net) tests using JSON configuration with dynamic actions and variable capture. Designed to streamline certification testing workflows for OpenID Connect implementations.
 
 ## Table of Contents
 
@@ -45,15 +45,15 @@ A powerful CLI tool that automates [OpenID Connect Conformance Suite](https://ww
 
 - **Node.js** 18 or higher
 - **npm** or **yarn**
-- Playwright-supported browsers (installed automatically)
+- Playwright-supported browsers
 
 ## Installation
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/jrogeriosilva/openid-conformance-automation-cli.git
-cd openid-conformance-automation-cli
+git clone https://github.com/jrogeriosilva/oidc-autopilot.git
+cd oidc-autopilot
 ```
 
 2. Install dependencies:
@@ -171,18 +171,93 @@ Use `{{variable_name}}` syntax to reference captured variables anywhere in your 
 
 Variables are interpolated at runtime with the values captured during execution.
 
+### Variables
+
+Variables can be defined at two levels to provide fixed values for templating:
+
+1. **Global variables**: Available to all modules
+2. **Module variables**: Available to specific module (overrides global)
+
+Variable precedence (highest to lowest):
+- **Captured variables** (from API responses, URLs)
+- **Module variables** (from config)
+- **Global variables** (from config)
+
+Example:
+```json
+{
+  "variables": {
+    "api_base": "https://api.example.com",
+    "timeout": "5000"
+  },
+  "modules": [
+    {
+      "name": "test-module",
+      "variables": {
+        "timeout": "10000"
+      }
+    }
+  ]
+}
+```
+
 ### Actions
 
-Actions define HTTP requests to execute when a test module enters the `WAITING` state:
+Actions are typed operations executed when a test module enters the `WAITING` state. There are two types: **API** (HTTP) and **Browser** (Playwright).
+
+#### API Actions
+
+Execute HTTP requests and capture variables from responses:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `type` | string | Yes | Must be `"api"` |
 | `name` | string | Yes | Unique identifier for the action |
 | `endpoint` | string | Yes | URL to send the request (supports templating) |
-| `method` | string | Yes | HTTP method (`GET`, `POST`, etc.) |
+| `method` | string | Yes | HTTP method (`GET`, `POST`, etc.) Default: `"POST"` |
 | `payload` | object | No | Request body (supports templating) |
 | `headers` | object | No | Custom headers (supports templating) |
-| `callback_to` | string | No | URL to navigate after action completes |
+
+Example:
+```json
+{
+  "name": "approve_consent",
+  "type": "api",
+  "endpoint": "https://api.example.com/consent/{{consent_id}}",
+  "method": "POST",
+  "payload": {
+    "status": "approved"
+  },
+  "headers": {
+    "Authorization": "Bearer {{token}}"
+  }
+}
+```
+
+#### Browser Actions
+
+Execute browser operations using Playwright:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Must be `"browser"` |
+| `name` | string | Yes | Unique identifier for the action |
+| `operation` | string | Yes | Browser operation (currently only `"navigate"`) |
+| `url` | string | Yes | URL to navigate to (supports templating) |
+| `wait_for` | string | No | Wait strategy: `"networkidle"` (default), `"domcontentloaded"`, or `"load"` |
+
+Example:
+```json
+{
+  "name": "navigate_callback",
+  "type": "browser",
+  "operation": "navigate",
+  "url": "{{redirect_url}}",
+  "wait_for": "networkidle"
+}
+```
+
+**Note:** Browser actions within a module share the same browser session, preserving cookies and state.
 
 ## CLI Usage
 

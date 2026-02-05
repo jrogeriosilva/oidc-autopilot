@@ -1,187 +1,313 @@
 import { loadIsolatedModule } from "../testUtils/isolateModule";
 
 describe("ActionExecutor", () => {
-	const setupActionExecutor = () => {
-		const mocks = {
-			applyTemplate: jest.fn((value: unknown) => value),
-			captureFromObject: jest.fn(),
-			navigateWithPlaywright: jest.fn().mockResolvedValue("https://final.example"),
-			requestJson: jest
-				.fn()
-				.mockImplementation(
-					async (
-						_url: string,
-						_init: RequestInit,
-						_status: unknown,
-						options?: { capture?: { store: Record<string, string> } }
-					) => {
-						if (options?.capture) {
-							options.capture.store.captured = "yes";
-						}
-						return { ok: true };
-					}
-				),
-			getAuthHeaders: jest.fn((headers?: Record<string, string>) => ({
-				"Content-Type": "application/json",
-				...(headers ?? {}),
-			})),
-			HttpClient: jest.fn(),
-		};
+  const setupActionExecutor = () => {
+    const browserNavigateMock = jest.fn().mockResolvedValue("https://final.example");
 
-		const ActionExecutor = loadIsolatedModule(
-			() => {
-				jest.doMock("./template", () => ({ applyTemplate: mocks.applyTemplate }));
-				jest.doMock("./capture", () => ({ captureFromObject: mocks.captureFromObject }));
-				jest.doMock("./playwrightRunner", () => ({
-					navigateWithPlaywright: mocks.navigateWithPlaywright,
-				}));
-				jest.doMock("./httpClient", () => ({
-					HttpClient: mocks.HttpClient.mockImplementation(() => ({
-						requestJson: mocks.requestJson,
-						getAuthHeaders: mocks.getAuthHeaders,
-					})),
-				}));
-			},
-			() => require("./actions").ActionExecutor
-		);
+    const mocks = {
+      applyTemplate: jest.fn((value: unknown) => value),
+      captureFromObject: jest.fn(),
+      browserNavigate: browserNavigateMock,
+      requestJson: jest
+        .fn()
+        .mockImplementation(
+          async (
+            _url: string,
+            _init: RequestInit,
+            _status: unknown,
+            options?: { capture?: { store: Record<string, string> } }
+          ) => {
+            if (options?.capture) {
+              options.capture.store.captured = "yes";
+            }
+            return { ok: true };
+          }
+        ),
+      getAuthHeaders: jest.fn((headers?: Record<string, string>) => ({
+        "Content-Type": "application/json",
+        ...(headers ?? {}),
+      })),
+      HttpClient: jest.fn(),
+      BrowserSession: jest.fn().mockImplementation(() => ({
+        navigate: browserNavigateMock,
+        close: jest.fn(),
+        initialize: jest.fn(),
+        isInitialized: jest.fn().mockReturnValue(true),
+      })),
+    };
 
-		return { ActionExecutor, mocks };
-	};
+    const ActionExecutor = loadIsolatedModule(
+      () => {
+        jest.doMock("./template", () => ({ applyTemplate: mocks.applyTemplate }));
+        jest.doMock("./capture", () => ({ captureFromObject: mocks.captureFromObject }));
+        jest.doMock("./browserSession", () => ({
+          BrowserSession: mocks.BrowserSession.mockImplementation(() => ({
+            navigate: mocks.browserNavigate,
+          })),
+        }));
+        jest.doMock("./httpClient", () => ({
+          HttpClient: mocks.HttpClient.mockImplementation(() => ({
+            requestJson: mocks.requestJson,
+            getAuthHeaders: mocks.getAuthHeaders,
+          })),
+        }));
+      },
+      () => require("./actions").ActionExecutor
+    );
 
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
+    return { ActionExecutor, mocks };
+  };
 
-	it("returns action by name", () => {
-		const { ActionExecutor } = setupActionExecutor();
-		const actions = [
-			{
-				name: "act1",
-				endpoint: "https://example.com/one",
-				method: "POST",
-			},
-		];
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
-		const executor = new ActionExecutor(actions, { captureVars: [], headless: true });
+  describe("getAction", () => {
+    it("returns action by name", () => {
+      const { ActionExecutor, mocks } = setupActionExecutor();
+      const browserSession = new mocks.BrowserSession(true);
+      const actions = [
+        {
+          name: "act1",
+          type: "api" as const,
+          endpoint: "https://example.com/one",
+          method: "POST",
+        },
+      ];
 
-		expect(executor.getAction("act1")).toEqual(actions[0]);
-	});
+      const executor = new ActionExecutor(actions, {
+        captureVars: [],
+        headless: true,
+        browserSession,
+      });
 
-	it("throws when action is missing", async () => {
-		const { ActionExecutor } = setupActionExecutor();
-		const executor = new ActionExecutor([], { captureVars: [], headless: true });
+      expect(executor.getAction("act1")).toEqual(actions[0]);
+    });
+  });
 
-		await expect(executor.executeAction("missing", {})).rejects.toThrow(
-			"Action 'missing' not found in config"
-		);
-	});
+  describe("executeAction", () => {
+    it("throws when action is missing", async () => {
+      const { ActionExecutor, mocks } = setupActionExecutor();
+      const browserSession = new mocks.BrowserSession(true);
+      const executor = new ActionExecutor([], {
+        captureVars: [],
+        headless: true,
+        browserSession,
+      });
 
-	it("templates request data, executes HTTP call, and captures callback", async () => {
-		const { ActionExecutor, mocks } = setupActionExecutor();
+      await expect(executor.executeAction("missing", {}, {})).rejects.toThrow(
+        "Action 'missing' not found in config"
+      );
+    });
+  });
 
-		const rawPayload = { foo: "{{bar}}" };
-		const rawHeaders = { "X-Test": "{{token}}" };
-		const action = {
-			name: "act1",
-			endpoint: "https://api.example/{{id}}",
-			method: "POST",
-			payload: rawPayload,
-			headers: rawHeaders,
-			callback_to: "https://callback/{{id}}",
-		};
-		const variables = { id: "123", bar: "baz", token: "tkn" };
+  describe("API actions", () => {
+    it("templates and executes HTTP request", async () => {
+      const { ActionExecutor, mocks } = setupActionExecutor();
+      const browserSession = new mocks.BrowserSession(true);
 
-		mocks.applyTemplate.mockImplementation((value: unknown) => {
-			if (value === action.endpoint) {
-				return "https://api.example/123";
-			}
-			if (value === rawPayload) {
-				return { foo: "baz" };
-			}
-			if (value === rawHeaders) {
-				return { "X-Test": "tkn" };
-			}
-			if (value === action.callback_to) {
-				return "https://callback/123";
-			}
-			return value;
-		});
+      const rawPayload = { foo: "{{bar}}" };
+      const rawHeaders = { "X-Test": "{{token}}" };
+      const action = {
+        name: "act1",
+        type: "api" as const,
+        endpoint: "https://api.example/{{id}}",
+        method: "POST",
+        payload: rawPayload,
+        headers: rawHeaders,
+      };
+      const capturedVariables = { id: "123" };
+      const moduleVariables = { bar: "baz", token: "tkn" };
 
-		const executor = new ActionExecutor([action], {
-			captureVars: ["captured"],
-			headless: true,
-		});
+      mocks.applyTemplate.mockImplementation((value: unknown) => {
+        if (value === action.endpoint) {
+          return "https://api.example/123";
+        }
+        if (value === rawPayload) {
+          return { foo: "baz" };
+        }
+        if (value === rawHeaders) {
+          return { "X-Test": "tkn" };
+        }
+        return value;
+      });
 
-		const result = await executor.executeAction("act1", variables);
+      const executor = new ActionExecutor([action], {
+        captureVars: ["captured"],
+        headless: true,
+        browserSession,
+      });
 
-		expect(mocks.applyTemplate).toHaveBeenCalledWith(action.endpoint, variables);
-		expect(mocks.applyTemplate).toHaveBeenCalledWith(rawPayload, variables);
-		expect(mocks.applyTemplate).toHaveBeenCalledWith(rawHeaders, variables);
-		expect(mocks.applyTemplate).toHaveBeenCalledWith(action.callback_to, variables);
+      const result = await executor.executeAction("act1", capturedVariables, moduleVariables);
 
-		expect(mocks.getAuthHeaders).toHaveBeenCalledWith({ "X-Test": "tkn" });
-		expect(mocks.requestJson).toHaveBeenCalledWith(
-			"https://api.example/123",
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"X-Test": "tkn",
-				},
-				body: JSON.stringify({ foo: "baz" }),
-			},
-			"ok",
-			{
-				capture: { captureVars: ["captured"], store: result },
-				allowNonJson: true,
-			}
-		);
+      // Variables should be merged (captured > module > global)
+      const expectedVars = { bar: "baz", token: "tkn", id: "123" };
 
-		expect(mocks.navigateWithPlaywright).toHaveBeenCalledWith(
-			"https://callback/123",
-			true
-		);
-		expect(mocks.captureFromObject).toHaveBeenCalledWith(
-			"https://final.example",
-			["captured"],
-			result
-		);
-		expect(result).toEqual({ captured: "yes" });
-	});
+      expect(mocks.applyTemplate).toHaveBeenCalledWith(action.endpoint, expectedVars);
+      expect(mocks.applyTemplate).toHaveBeenCalledWith(rawPayload, expectedVars);
+      expect(mocks.applyTemplate).toHaveBeenCalledWith(rawHeaders, expectedVars);
 
-	it("executes action without payload, headers, or callback", async () => {
-		const { ActionExecutor, mocks } = setupActionExecutor();
+      expect(mocks.getAuthHeaders).toHaveBeenCalledWith({ "X-Test": "tkn" });
+      expect(mocks.requestJson).toHaveBeenCalledWith(
+        "https://api.example/123",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Test": "tkn",
+          },
+          body: JSON.stringify({ foo: "baz" }),
+        },
+        "ok",
+        {
+          capture: { captureVars: ["captured"], store: result },
+          allowNonJson: true,
+        }
+      );
 
-		const action = {
-			name: "act2",
-			endpoint: "https://api.example/health",
-			method: "GET",
-		};
+      expect(mocks.browserNavigate).not.toHaveBeenCalled();
+      expect(result).toEqual({ captured: "yes" });
+    });
 
-		const executor = new ActionExecutor([action], {
-			captureVars: [],
-			headless: true,
-		});
+    it("executes action without payload or headers", async () => {
+      const { ActionExecutor, mocks } = setupActionExecutor();
+      const browserSession = new mocks.BrowserSession(true);
 
-		const result = await executor.executeAction("act2", {});
+      const action = {
+        name: "act2",
+        type: "api" as const,
+        endpoint: "https://api.example/health",
+        method: "GET",
+      };
 
-		expect(mocks.applyTemplate).toHaveBeenCalledWith(action.endpoint, {});
-		expect(mocks.requestJson).toHaveBeenCalledWith(
-			"https://api.example/health",
-			{
-				method: "GET",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: undefined,
-			},
-			"ok",
-			{
-				capture: { captureVars: [], store: result },
-				allowNonJson: true,
-			}
-		);
-		expect(mocks.navigateWithPlaywright).not.toHaveBeenCalled();
-		expect(result).toEqual({ captured: "yes" });
-	});
+      const executor = new ActionExecutor([action], {
+        captureVars: [],
+        headless: true,
+        browserSession,
+      });
+
+      const result = await executor.executeAction("act2", {}, {});
+
+      expect(mocks.applyTemplate).toHaveBeenCalledWith(action.endpoint, {});
+      expect(mocks.requestJson).toHaveBeenCalledWith(
+        "https://api.example/health",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: undefined,
+        },
+        "ok",
+        {
+          capture: { captureVars: [], store: result },
+          allowNonJson: true,
+        }
+      );
+      expect(mocks.browserNavigate).not.toHaveBeenCalled();
+      expect(result).toEqual({ captured: "yes" });
+    });
+  });
+
+  describe("Browser actions", () => {
+    it("navigates and captures final URL", async () => {
+      const { ActionExecutor, mocks } = setupActionExecutor();
+      const browserSession = new mocks.BrowserSession(true);
+
+      const action = {
+        name: "nav1",
+        type: "browser" as const,
+        operation: "navigate" as const,
+        url: "https://redirect/{{id}}",
+        wait_for: "networkidle" as const,
+      };
+      const capturedVariables = { id: "456" };
+      const moduleVariables = {};
+
+      mocks.applyTemplate.mockImplementation((value: unknown) => {
+        if (value === action.url) {
+          return "https://redirect/456";
+        }
+        return value;
+      });
+
+      const executor = new ActionExecutor([action], {
+        captureVars: ["result"],
+        headless: true,
+        browserSession,
+      });
+
+      const result = await executor.executeAction("nav1", capturedVariables, moduleVariables);
+
+      expect(mocks.applyTemplate).toHaveBeenCalledWith(action.url, { id: "456" });
+      expect(mocks.browserNavigate).toHaveBeenCalledWith("https://redirect/456", "networkidle");
+      expect(mocks.captureFromObject).toHaveBeenCalledWith(
+        "https://final.example",
+        ["result"],
+        result
+      );
+      expect(mocks.requestJson).not.toHaveBeenCalled();
+    });
+
+    it("supports different wait strategies", async () => {
+      const { ActionExecutor, mocks } = setupActionExecutor();
+      const browserSession = new mocks.BrowserSession(true);
+
+      const action = {
+        name: "nav2",
+        type: "browser" as const,
+        operation: "navigate" as const,
+        url: "https://example.com",
+        wait_for: "domcontentloaded" as const,
+      };
+
+      const executor = new ActionExecutor([action], {
+        captureVars: [],
+        headless: true,
+        browserSession,
+      });
+
+      await executor.executeAction("nav2", {}, {});
+
+      expect(mocks.browserNavigate).toHaveBeenCalledWith("https://example.com", "domcontentloaded");
+    });
+  });
+
+  describe("Variable merging", () => {
+    it("merges variables with correct precedence: captured > module > global", async () => {
+      const { ActionExecutor, mocks } = setupActionExecutor();
+      const browserSession = new mocks.BrowserSession(true);
+
+      const action = {
+        name: "test",
+        type: "api" as const,
+        endpoint: "https://api.example/{{var1}}/{{var2}}/{{var3}}",
+        method: "GET",
+      };
+
+      const globalVariables = { var1: "global1", var2: "global2", var3: "global3" };
+      const moduleVariables = { var2: "module2", var3: "module3" };
+      const capturedVariables = { var3: "captured3" };
+
+      mocks.applyTemplate.mockImplementation((value: unknown) => {
+        if (value === action.endpoint) {
+          return "https://api.example/global1/module2/captured3";
+        }
+        return value;
+      });
+
+      const executor = new ActionExecutor([action], {
+        captureVars: [],
+        headless: true,
+        globalVariables,
+        browserSession,
+      });
+
+      await executor.executeAction("test", capturedVariables, moduleVariables);
+
+      // Verify merged variables: captured3 > module2 > global1
+      const expectedMerged = { var1: "global1", var2: "module2", var3: "captured3" };
+      expect(mocks.applyTemplate).toHaveBeenCalledWith(action.endpoint, expectedMerged);
+    });
+  });
 });

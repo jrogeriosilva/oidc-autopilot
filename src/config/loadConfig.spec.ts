@@ -15,16 +15,17 @@ describe("loadConfig", () => {
   it("loads and validates a config file", () => {
     const filePath = writeTempConfig("sample.config.json", {
       modules: [{ name: "module-1" }],
-      actions: [{ name: "action-1", endpoint: "https://example.com" }],
+      actions: [{ name: "action-1", type: "api", endpoint: "https://example.com" }],
     });
 
     const config = loadConfig(filePath);
 
-    expect(config.modules).toEqual([{ name: "module-1" }]);
+    expect(config.modules).toEqual([{ name: "module-1", variables: {} }]);
     expect(config.actions).toEqual([
-      { name: "action-1", endpoint: "https://example.com", method: "POST" },
+      { name: "action-1", type: "api", endpoint: "https://example.com", method: "POST" },
     ]);
     expect(config.capture_vars).toEqual([]);
+    expect(config.variables).toEqual({});
   });
 
   it("rejects files without the .config.json suffix", () => {
@@ -37,12 +38,13 @@ describe("loadConfig", () => {
 });
 
 describe("planConfigSchema", () => {
-  it("applies defaults for optional arrays", () => {
+  it("applies defaults for optional arrays and objects", () => {
     const result = planConfigSchema.parse({ modules: [{ name: "module-1" }] });
 
     expect(result.capture_vars).toEqual([]);
     expect(result.actions).toEqual([]);
-    expect(result.modules).toEqual([{ name: "module-1" }]);
+    expect(result.variables).toEqual({});
+    expect(result.modules).toEqual([{ name: "module-1", variables: {} }]);
   });
 
   it("throws on invalid modules", () => {

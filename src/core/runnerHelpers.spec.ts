@@ -15,6 +15,7 @@ describe("runnerHelpers", () => {
       info: jest.fn(),
       log: jest.fn(),
       error: jest.fn(),
+      debug: jest.fn(),
       summary: jest.fn(),
     };
 
@@ -22,7 +23,15 @@ describe("runnerHelpers", () => {
       executeAction: jest.fn(),
     };
 
-    const mockNavigateWithPlaywright = jest.fn();
+    const mockBrowserNavigate = jest.fn();
+    const mockBrowserClose = jest.fn().mockResolvedValue(undefined);
+    const mockBrowserInitialize = jest.fn().mockResolvedValue(undefined);
+    const mockBrowserSession = {
+      navigate: mockBrowserNavigate,
+      close: mockBrowserClose,
+      initialize: mockBrowserInitialize,
+      isInitialized: jest.fn().mockReturnValue(true),
+    };
     const mockCaptureFromObject = jest.fn();
     const mockSleep = jest.fn().mockResolvedValue(undefined);
 
@@ -30,7 +39,9 @@ describe("runnerHelpers", () => {
       mockApi,
       mockLogger,
       mockActionExecutor,
-      mockNavigateWithPlaywright,
+      mockBrowserSession,
+      mockBrowserNavigate,
+      mockBrowserClose,
       mockCaptureFromObject,
       mockSleep,
     };
@@ -41,28 +52,21 @@ describe("runnerHelpers", () => {
       mockApi,
       mockLogger,
       mockActionExecutor,
-      mockNavigateWithPlaywright,
+      mockBrowserNavigate,
       mockCaptureFromObject,
       mockSleep,
     } = mocks;
 
     const { pollRunnerStatus } = loadIsolatedModule(
       () => {
-        jest.doMock("./playwrightRunner", () => ({
-          navigateWithPlaywright: mockNavigateWithPlaywright,
+        jest.doMock("./browserSession", () => ({
+          BrowserSession: jest.fn(),
         }));
         jest.doMock("./capture", () => ({
           captureFromObject: mockCaptureFromObject,
         }));
         jest.doMock("../utils/sleep", () => ({
           sleep: mockSleep,
-        }));
-        jest.doMock("./constants", () => ({
-          CONSTANTS: {
-            CALLBACK_VARIABLE_NAME: "redirect_to",
-            POLL_INTERVAL_SECONDS_DEFAULT: 5,
-            TIMEOUT_SECONDS_DEFAULT: 240,
-          },
         }));
       },
       () => require("./runnerHelpers")
@@ -77,6 +81,7 @@ describe("runnerHelpers", () => {
     timeout: 10,
     headless: true,
     logger: mocks.mockLogger,
+    browserSession: mocks.mockBrowserSession,
   });
 
   describe("pollRunnerStatus", () => {
@@ -280,7 +285,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/test?code=xyz"
       );
 
@@ -309,9 +314,8 @@ describe("runnerHelpers", () => {
         captureVars: ["code"],
         store: captured,
       });
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenCalledWith(
-        "https://example.com/test",
-        true
+      expect(mocks.mockBrowserNavigate).toHaveBeenCalledWith(
+        "https://example.com/test"
       );
     });
 
@@ -376,7 +380,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/auth?state=xyz&code=abc"
       );
 
@@ -411,9 +415,8 @@ describe("runnerHelpers", () => {
         },
       });
 
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenCalledWith(
-        "https://example.com/auth?state=xyz",
-        true
+      expect(mocks.mockBrowserNavigate).toHaveBeenCalledWith(
+        "https://example.com/auth?state=xyz"
       );
     });
 
@@ -444,7 +447,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://preferred.com/url"
       );
 
@@ -468,9 +471,8 @@ describe("runnerHelpers", () => {
         },
       });
 
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenCalledWith(
-        "https://preferred.com/url",
-        expect.any(Boolean)
+      expect(mocks.mockBrowserNavigate).toHaveBeenCalledWith(
+        "https://preferred.com/url"
       );
     });
 
@@ -501,7 +503,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://fallback.com/auth?state=abc"
       );
 
@@ -525,9 +527,8 @@ describe("runnerHelpers", () => {
         },
       });
 
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenCalledWith(
-        "https://fallback.com/auth",
-        expect.any(Boolean)
+      expect(mocks.mockBrowserNavigate).toHaveBeenCalledWith(
+        "https://fallback.com/auth"
       );
     });
 
@@ -573,7 +574,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      expect(mocks.mockNavigateWithPlaywright).not.toHaveBeenCalled();
+      expect(mocks.mockBrowserNavigate).not.toHaveBeenCalled();
       expect(navigationExecuted).toBe(false);
     });
 
@@ -603,7 +604,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/auth?code=xyz"
       );
 
@@ -628,7 +629,7 @@ describe("runnerHelpers", () => {
       });
 
       // Navigation should only be called once, even though we had multiple WAITING states
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenCalledTimes(1);
+      expect(mocks.mockBrowserNavigate).toHaveBeenCalledTimes(1);
     });
 
     test("executes actions after navigation is complete", async () => {
@@ -657,7 +658,7 @@ describe("runnerHelpers", () => {
         { log: "test log" },
       ]);
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback"
       );
 
@@ -677,6 +678,7 @@ describe("runnerHelpers", () => {
         captureVars: [],
         captured,
         actions: ["submit-form"],
+        moduleVariables: {},
         actionExecutor: mocks.mockActionExecutor,
         executedActions,
         isNavigationExecuted: () => navigationExecuted,
@@ -687,7 +689,8 @@ describe("runnerHelpers", () => {
 
       expect(mocks.mockActionExecutor.executeAction).toHaveBeenCalledWith(
         "submit-form",
-        captured
+        captured,
+        {}
       );
     });
 
@@ -736,127 +739,6 @@ describe("runnerHelpers", () => {
       expect(mocks.mockActionExecutor.executeAction).not.toHaveBeenCalled();
     });
 
-    test("navigates to callback URL when callback variable is captured", async () => {
-      const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
-
-      mocks.mockApi.getModuleInfo
-        .mockResolvedValueOnce({
-          status: "WAITING",
-          result: "UNKNOWN",
-        })
-        .mockResolvedValueOnce({
-          status: "FINISHED",
-          result: "PASSED",
-        });
-
-      mocks.mockApi.getRunnerInfo.mockResolvedValue({
-        status: "WAITING",
-        browser: {
-          urls: ["https://example.com/auth"],
-          urlsWithMethod: [],
-        },
-      });
-
-      mocks.mockNavigateWithPlaywright
-        .mockResolvedValueOnce(
-          "https://example.com/callback?code=xyz&state=abc"
-        )
-        .mockResolvedValueOnce("https://myapp.com/callback?code=xyz&session=def");
-
-      const context = createContext(mocks);
-      // Pre-populate the callback variable to trigger callback navigation
-      const captured: Record<string, string> = {
-        redirect_to: "https://myapp.com/callback",
-      };
-      const executedActions = new Set<string>();
-      let navigationExecuted = false;
-
-      await pollRunnerStatus({
-        context,
-        runnerId: "runner-1",
-        moduleName: "test-module",
-        captureVars: ["code"],
-        captured,
-        actions: [],
-        actionExecutor: mocks.mockActionExecutor,
-        executedActions,
-        isNavigationExecuted: () => navigationExecuted,
-        markNavigationExecuted: () => {
-          navigationExecuted = true;
-        },
-      });
-
-      // Verify both navigations occurred: one to auth URL, one to callback
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenCalledTimes(2);
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenNthCalledWith(
-        1,
-        "https://example.com/auth",
-        true
-      );
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenNthCalledWith(
-        2,
-        "https://myapp.com/callback",
-        true
-      );
-    });
-
-    test("captures variables from callback URL navigation", async () => {
-      const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
-
-      mocks.mockApi.getModuleInfo
-        .mockResolvedValueOnce({
-          status: "WAITING",
-          result: "UNKNOWN",
-        })
-        .mockResolvedValueOnce({
-          status: "FINISHED",
-          result: "PASSED",
-        });
-
-      mocks.mockApi.getRunnerInfo.mockResolvedValue({
-        status: "WAITING",
-        browser: {
-          urls: ["https://example.com/auth"],
-          urlsWithMethod: [],
-        },
-      });
-
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
-        "https://myapp.com/callback?code=xyz&session=abc123"
-      );
-
-      const context = createContext(mocks);
-      const captured: Record<string, string> = {
-        redirect_to: "https://myapp.com/callback?code=xyz",
-      };
-      const executedActions = new Set<string>();
-      let navigationExecuted = false;
-
-      await pollRunnerStatus({
-        context,
-        runnerId: "runner-1",
-        moduleName: "test-module",
-        captureVars: ["code", "session"],
-        captured,
-        actions: [],
-        actionExecutor: mocks.mockActionExecutor,
-        executedActions,
-        isNavigationExecuted: () => navigationExecuted,
-        markNavigationExecuted: () => {
-          navigationExecuted = true;
-        },
-      });
-
-      // Verify capture was called on the final URL after callback navigation
-      const captureCallsWithUrl = mocks.mockCaptureFromObject.mock.calls.filter(
-        (call) =>
-          typeof call[0] === "string" &&
-          call[0].includes("myapp.com/callback")
-      );
-      expect(captureCallsWithUrl.length).toBeGreaterThan(0);
-    });
   });
 
   describe("tryExecuteActions", () => {
@@ -884,7 +766,7 @@ describe("runnerHelpers", () => {
 
       mocks.mockApi.getModuleLogs.mockResolvedValue([]);
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback"
       );
 
@@ -902,6 +784,7 @@ describe("runnerHelpers", () => {
         captureVars: [],
         captured,
         actions: ["action1", "action2"],
+        moduleVariables: {},
         actionExecutor: mocks.mockActionExecutor,
         executedActions,
         isNavigationExecuted: () => navigationExecuted,
@@ -912,11 +795,11 @@ describe("runnerHelpers", () => {
 
       expect(mocks.mockActionExecutor.executeAction).toHaveBeenCalledWith(
         "action1",
-        expect.any(Object)
+        expect.any(Object), {}
       );
       expect(mocks.mockActionExecutor.executeAction).toHaveBeenCalledWith(
         "action2",
-        expect.any(Object)
+        expect.any(Object), {}
       );
       expect(mocks.mockActionExecutor.executeAction).toHaveBeenCalledTimes(2);
     });
@@ -949,7 +832,7 @@ describe("runnerHelpers", () => {
 
       mocks.mockApi.getModuleLogs.mockResolvedValue([]);
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback"
       );
 
@@ -967,6 +850,7 @@ describe("runnerHelpers", () => {
         captureVars: [],
         captured,
         actions: ["action1", "action2"],
+        moduleVariables: {},
         actionExecutor: mocks.mockActionExecutor,
         executedActions,
         isNavigationExecuted: () => navigationExecuted,
@@ -978,7 +862,7 @@ describe("runnerHelpers", () => {
       // Should only execute action2, skipping action1
       expect(mocks.mockActionExecutor.executeAction).toHaveBeenCalledWith(
         "action2",
-        expect.any(Object)
+        expect.any(Object), {}
       );
       expect(mocks.mockActionExecutor.executeAction).toHaveBeenCalledTimes(1);
     });
@@ -1007,7 +891,7 @@ describe("runnerHelpers", () => {
 
       mocks.mockApi.getModuleLogs.mockResolvedValue([]);
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback"
       );
 
@@ -1065,7 +949,7 @@ describe("runnerHelpers", () => {
         { entry: "log entry" },
       ]);
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback"
       );
 
@@ -1121,7 +1005,7 @@ describe("runnerHelpers", () => {
 
       mocks.mockApi.getModuleLogs.mockResolvedValue([]);
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback"
       );
 
@@ -1226,7 +1110,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback?code=abc&state=xyz"
       );
 
@@ -1276,7 +1160,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback?code=xyz"
       );
 
@@ -1308,58 +1192,6 @@ describe("runnerHelpers", () => {
       );
     });
 
-    test("respects headless browser setting", async () => {
-      const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
-
-      mocks.mockApi.getModuleInfo
-        .mockResolvedValueOnce({
-          status: "WAITING",
-          result: "UNKNOWN",
-        })
-        .mockResolvedValueOnce({
-          status: "FINISHED",
-          result: "PASSED",
-        });
-
-      mocks.mockApi.getRunnerInfo.mockResolvedValue({
-        status: "WAITING",
-        browser: {
-          urls: ["https://example.com/auth"],
-          urlsWithMethod: [],
-        },
-      });
-
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
-        "https://example.com/callback"
-      );
-
-      const context = createContext(mocks);
-      context.headless = false;
-      const captured: Record<string, string> = {};
-      const executedActions = new Set<string>();
-      let navigationExecuted = false;
-
-      await pollRunnerStatus({
-        context,
-        runnerId: "runner-1",
-        moduleName: "test-module",
-        captureVars: [],
-        captured,
-        actions: [],
-        actionExecutor: mocks.mockActionExecutor,
-        executedActions,
-        isNavigationExecuted: () => navigationExecuted,
-        markNavigationExecuted: () => {
-          navigationExecuted = true;
-        },
-      });
-
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenCalledWith(
-        expect.any(String),
-        false
-      );
-    });
   });
 
   describe("error handling", () => {
@@ -1416,7 +1248,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      mocks.mockNavigateWithPlaywright.mockRejectedValue(
+      mocks.mockBrowserNavigate.mockRejectedValue(
         new Error("Browser crashed")
       );
 
@@ -1467,7 +1299,7 @@ describe("runnerHelpers", () => {
 
       mocks.mockApi.getModuleLogs.mockResolvedValue([]);
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback"
       );
 
@@ -1528,7 +1360,7 @@ describe("runnerHelpers", () => {
 
       mocks.mockApi.getModuleLogs.mockResolvedValue([]);
 
-      mocks.mockNavigateWithPlaywright
+      mocks.mockBrowserNavigate
         .mockResolvedValueOnce(
           "https://server.com/authorize?state=xyz&code=auth-code"
         )
@@ -1563,7 +1395,7 @@ describe("runnerHelpers", () => {
       expect(result.state).toBe("FINISHED");
       expect(result.info.result).toBe("PASSED");
       expect(mocks.mockApi.getModuleInfo).toHaveBeenCalledTimes(3);
-      expect(mocks.mockNavigateWithPlaywright).toHaveBeenCalledTimes(1);
+      expect(mocks.mockBrowserNavigate).toHaveBeenCalledTimes(1);
       expect(mocks.mockActionExecutor.executeAction).toHaveBeenCalled();
       expect(captured.access_token).toBe("at-123");
     });
@@ -1602,7 +1434,7 @@ describe("runnerHelpers", () => {
         },
       });
 
-      mocks.mockNavigateWithPlaywright.mockResolvedValue(
+      mocks.mockBrowserNavigate.mockResolvedValue(
         "https://example.com/callback?code=xyz"
       );
 

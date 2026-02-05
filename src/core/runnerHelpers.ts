@@ -3,9 +3,8 @@ import type { Logger } from "./logger";
 import type { RunnerOptions, TestResult, TestState } from "./types";
 import { captureFromObject } from "./capture";
 import { ActionExecutor } from "./actions";
-import { navigateWithPlaywright } from "./playwrightRunner";
+import { BrowserSession } from "./browserSession";
 import { sleep } from "../utils/sleep";
-import { CONSTANTS } from "./constants";
 
 export interface RunnerContext {
   api: RunnerOptions["api"];
@@ -13,8 +12,16 @@ export interface RunnerContext {
   timeout: number;
   headless: boolean;
   logger: Logger;
+  browserSession: BrowserSession;
 }
 
+/**
+ * @deprecated Use StateManager class instead. This function is kept for backward compatibility
+ * and will be removed in Phase 2 of the refactoring plan.
+ *
+ * Please migrate to StateManager for better separation of concerns and maintainability.
+ * See src/core/stateManager.ts for the new implementation.
+ */
 export const pollRunnerStatus = async ({
   context,
   runnerId,
@@ -22,6 +29,7 @@ export const pollRunnerStatus = async ({
   captureVars,
   captured,
   actions,
+  moduleVariables,
   actionExecutor,
   executedActions,
   isNavigationExecuted,
@@ -33,6 +41,7 @@ export const pollRunnerStatus = async ({
   captureVars: string[];
   captured: Record<string, string>;
   actions: string[];
+  moduleVariables: Record<string, string>;
   actionExecutor: ActionExecutor;
   executedActions: Set<string>;
   isNavigationExecuted: () => boolean;
@@ -58,6 +67,7 @@ export const pollRunnerStatus = async ({
         captureVars,
         captured,
         actions,
+        moduleVariables,
         actionExecutor,
         executedActions,
         isNavigationExecuted,
@@ -82,6 +92,7 @@ const handleWaitingState = async ({
   captureVars,
   captured,
   actions,
+  moduleVariables,
   actionExecutor,
   executedActions,
   isNavigationExecuted,
@@ -93,6 +104,7 @@ const handleWaitingState = async ({
   captureVars: string[];
   captured: Record<string, string>;
   actions: string[];
+  moduleVariables: Record<string, string>;
   actionExecutor: ActionExecutor;
   executedActions: Set<string>;
   isNavigationExecuted: () => boolean;
@@ -111,7 +123,7 @@ const handleWaitingState = async ({
       moduleName,
       captured,
       captureVars,
-      headless: context.headless,
+      browserSession: context.browserSession,
       logger: context.logger,
     });
     if (navigated) {
@@ -125,22 +137,12 @@ const handleWaitingState = async ({
       runnerId,
       moduleName,
       actions,
+      moduleVariables,
       actionExecutor,
       executedActions,
       captured,
       captureVars,
     });
-  }
-
-  if (captured[CONSTANTS.CALLBACK_VARIABLE_NAME]) {
-    context.logger.log(
-      `[${moduleName}]: Redirecting to callback URL: ${captured[CONSTANTS.CALLBACK_VARIABLE_NAME]}`
-    );
-    const finalUrl = await navigateWithPlaywright(
-      captured[CONSTANTS.CALLBACK_VARIABLE_NAME],
-      context.headless
-    );
-    captureFromObject(finalUrl, captureVars, captured);
   }
 };
 
@@ -149,6 +151,7 @@ const tryExecuteActions = async ({
   runnerId,
   moduleName,
   actions,
+  moduleVariables,
   actionExecutor,
   executedActions,
   captured,
@@ -158,6 +161,7 @@ const tryExecuteActions = async ({
   runnerId: string;
   moduleName: string;
   actions: string[];
+  moduleVariables: Record<string, string>;
   actionExecutor: ActionExecutor;
   executedActions: Set<string>;
   captured: Record<string, string>;
@@ -176,7 +180,11 @@ const tryExecuteActions = async ({
     }
 
     context.logger.log(`[${moduleName}]: Executing action '${actionName}'...`);
-    const newlyCaptured = await actionExecutor.executeAction(actionName, captured);
+    const newlyCaptured = await actionExecutor.executeAction(
+      actionName,
+      captured,
+      moduleVariables
+    );
     Object.assign(captured, newlyCaptured);
     executedActions.add(actionName);
     context.logger.log(`[${moduleName}]: Action '${actionName}' completed.`);
@@ -188,14 +196,14 @@ const navigateToUrl = async ({
   moduleName,
   captured,
   captureVars,
-  headless,
+  browserSession,
   logger,
 }: {
   runnerInfo: RunnerInfo;
   moduleName: string;
   captured: Record<string, string>;
   captureVars: string[];
-  headless: boolean;
+  browserSession: BrowserSession;
   logger: Logger;
 }): Promise<boolean> => {
   captureFromObject(runnerInfo, captureVars, captured);
@@ -222,7 +230,7 @@ const navigateToUrl = async ({
 
   logger.log(`[${moduleName}]: Navigating to URL: ${targetUrl}`);
   captureFromObject(targetUrl, captureVars, captured);
-  const finalUrl = await navigateWithPlaywright(targetUrl, headless);
+  const finalUrl = await browserSession.navigate(targetUrl);
   captureFromObject(finalUrl, captureVars, captured);
   logger.log(`[${moduleName}]: Navigation completed for URL: ${finalUrl}`);
   return true;
