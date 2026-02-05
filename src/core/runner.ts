@@ -2,6 +2,7 @@ import type { ModuleConfig, PlanConfig } from "../config/schema";
 import type { Logger } from "./logger";
 import type { ExecutionSummary, ModuleResult, RunnerOptions } from "./types";
 import { ActionExecutor } from "./actions";
+import { BrowserSession } from "./browserSession";
 import { pollRunnerStatus } from "./runnerHelpers";
 
 export class Runner {
@@ -37,11 +38,6 @@ export class Runner {
       modules: [],
     };
 
-    const actionExecutor = new ActionExecutor(config.actions, {
-      captureVars: config.capture_vars,
-      headless: this.headless,
-    });
-
     /*
       Execute each module in sequence
     */
@@ -49,7 +45,8 @@ export class Runner {
       const result = await this.executeModule({
         planId,
         moduleConfig,
-        actionExecutor,
+        globalVariables: config.variables ?? {},
+        allActions: config.actions,
         captureVars: config.capture_vars,
       });
 
@@ -108,54 +105,75 @@ export class Runner {
   private async executeModule({
     planId,
     moduleConfig,
-    actionExecutor,
+    globalVariables,
+    allActions,
     captureVars,
   }: {
     planId: string;
     moduleConfig: ModuleConfig;
-    actionExecutor: ActionExecutor;
+    globalVariables: Record<string, string>;
+    allActions: PlanConfig["actions"];
     captureVars: string[];
   }): Promise<ModuleResult> {
     const moduleName = moduleConfig.name;
+    const moduleVariables = moduleConfig.variables ?? {};
     const captured: Record<string, string> = {};
     const executedActions = new Set<string>();
     let isExecutedNavigation = false;
 
-    this.logger.log(`[${moduleName}]: Registering...`);
-    const runnerId = await this.api.registerRunner(planId, moduleName, {
-      captureVars,
-      store: captured,
-    });
-    this.logger.log(`[${moduleName}]: Registering... OK (ID: ${runnerId})`);
-    
-    const terminalState = await pollRunnerStatus({
-      context: {
-        api: this.api,
-        pollInterval: this.pollInterval,
-        timeout: this.timeout,
-        headless: this.headless,
-        logger: this.logger,
-      },
-      runnerId,
-      moduleName,
-      captureVars,
-      captured,
-      actions: moduleConfig.actions ?? [],
-      actionExecutor,
-      executedActions,
-      isNavigationExecuted: () => isExecutedNavigation,
-      markNavigationExecuted: () => {
-        isExecutedNavigation = true;
-      },
-    });
+    // Create browser session per module
+    const browserSession = new BrowserSession(this.headless);
 
-    return {
-      name: moduleName,
-      runnerId,
-      state: terminalState.state,
-      result: terminalState.info.result,
-      captured,
-    };
+    try {
+      // Create action executor with browser session
+      const actionExecutor = new ActionExecutor(allActions, {
+        captureVars,
+        headless: this.headless,
+        globalVariables,
+        browserSession,
+      });
+
+      this.logger.log(`[${moduleName}]: Registering...`);
+      const runnerId = await this.api.registerRunner(planId, moduleName, {
+        captureVars,
+        store: captured,
+      });
+      this.logger.log(`[${moduleName}]: Registering... OK (ID: ${runnerId})`);
+
+      const terminalState = await pollRunnerStatus({
+        context: {
+          api: this.api,
+          pollInterval: this.pollInterval,
+          timeout: this.timeout,
+          headless: this.headless,
+          logger: this.logger,
+          browserSession,
+        },
+        runnerId,
+        moduleName,
+        captureVars,
+        captured,
+        actions: moduleConfig.actions ?? [],
+        moduleVariables,
+        actionExecutor,
+        executedActions,
+        isNavigationExecuted: () => isExecutedNavigation,
+        markNavigationExecuted: () => {
+          isExecutedNavigation = true;
+        },
+      });
+
+      return {
+        name: moduleName,
+        runnerId,
+        state: terminalState.state,
+        result: terminalState.info.result,
+        captured,
+      };
+    } finally {
+      // Cleanup browser session
+      await browserSession.close();
+    }
   }
 
 }

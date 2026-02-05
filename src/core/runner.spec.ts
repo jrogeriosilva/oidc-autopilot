@@ -5,21 +5,26 @@ describe("Runner", () => {
   const setupRunner = () => {
     const mocks = {
       captureFromObject: jest.fn(),
-      navigateWithPlaywright: jest.fn().mockResolvedValue("http://final"),
+      browserNavigate: jest.fn().mockResolvedValue("http://final"),
+      browserClose: jest.fn().mockResolvedValue(undefined),
+      browserInitialize: jest.fn().mockResolvedValue(undefined),
       sleep: jest.fn().mockResolvedValue(undefined),
       ActionExecutor: jest.fn(),
+      BrowserSession: jest.fn(),
     };
 
     const Runner = loadIsolatedModule(
       () => {
         jest.doMock("./capture", () => ({ captureFromObject: mocks.captureFromObject }));
-        jest.doMock("./playwrightRunner", () => ({
-          navigateWithPlaywright: mocks.navigateWithPlaywright,
+        jest.doMock("./browserSession", () => ({
+          BrowserSession: mocks.BrowserSession.mockImplementation(() => ({
+            navigate: mocks.browserNavigate,
+            close: mocks.browserClose,
+            initialize: mocks.browserInitialize,
+            isInitialized: jest.fn().mockReturnValue(true),
+          })),
         }));
         jest.doMock("../utils/sleep", () => ({ sleep: mocks.sleep }));
-        jest.doMock("./constants", () => ({
-          CONSTANTS: { CALLBACK_VARIABLE_NAME: "callbackUrl" },
-        }));
         jest.doMock("./actions", () => ({ ActionExecutor: mocks.ActionExecutor }));
       },
       () => require("./runner").Runner
@@ -42,6 +47,7 @@ describe("Runner", () => {
 
   const createConfig = (overrides: Partial<PlanConfig> = {}): PlanConfig => ({
     capture_vars: [],
+    variables: {},
     actions: [],
     modules: [],
     ...overrides,
@@ -49,6 +55,7 @@ describe("Runner", () => {
 
   const actionConfig = {
     name: "act1",
+    type: "api" as const,
     endpoint: "https://example.com/act1",
     method: "GET",
   };
@@ -76,7 +83,10 @@ describe("Runner", () => {
     const { runner } = createRunner(Runner, api);
 
     const config = createConfig({
-      modules: [{ name: "module-1" }, { name: "module-2" }],
+      modules: [
+        { name: "module-1", variables: {} },
+        { name: "module-2", variables: {} },
+      ],
     });
 
     const summary = await runner.executePlan({ planId: "p1", config });
@@ -89,16 +99,12 @@ describe("Runner", () => {
     expect(summary.modules[1].runnerId).toBe("r2");
   });
 
-  test("executes navigation, actions, and callback redirect once", async () => {
+  test("executes navigation and actions once", async () => {
     const { Runner, mocks } = setupRunner();
 
-    const executeAction = jest
-      .fn()
-      .mockResolvedValue({ callbackUrl: "http://callback" });
+    const executeAction = jest.fn().mockResolvedValue({});
     mocks.ActionExecutor.mockImplementation(() => ({ executeAction }));
-    mocks.navigateWithPlaywright
-      .mockResolvedValueOnce("http://final1")
-      .mockResolvedValueOnce("http://final2");
+    mocks.browserNavigate.mockResolvedValueOnce("http://final1");
 
     const api = {
       registerRunner: jest.fn().mockResolvedValue("r1"),
@@ -115,19 +121,19 @@ describe("Runner", () => {
     const { runner } = createRunner(Runner, api);
 
     const config = createConfig({
-      actions: [actionConfig],
-      modules: [{ name: "module-1", actions: ["act1"] }],
+      actions: [{ ...actionConfig, type: "api" as const }],
+      modules: [{ name: "module-1", variables: {}, actions: ["act1"] }],
     });
 
     await runner.executePlan({ planId: "p1", config });
 
     expect(api.getRunnerInfo).toHaveBeenCalledTimes(1);
     expect(executeAction).toHaveBeenCalledTimes(1);
-    expect(executeAction).toHaveBeenCalledWith("act1", expect.any(Object));
-    expect(mocks.navigateWithPlaywright).toHaveBeenCalledTimes(2);
-    expect(mocks.navigateWithPlaywright).toHaveBeenNthCalledWith(1, "http://start", true);
-    expect(mocks.navigateWithPlaywright).toHaveBeenNthCalledWith(2, "http://callback", true);
+    expect(executeAction).toHaveBeenCalledWith("act1", expect.any(Object), {});
+    expect(mocks.browserNavigate).toHaveBeenCalledTimes(1);
+    expect(mocks.browserNavigate).toHaveBeenCalledWith("http://start");
     expect(mocks.sleep).toHaveBeenCalledTimes(1);
+    expect(mocks.browserClose).toHaveBeenCalledTimes(1);
   });
 
   test("executes actions once and captures vars during WAITING", async () => {
@@ -167,7 +173,7 @@ describe("Runner", () => {
     const config = createConfig({
       capture_vars: ["fromLog"],
       actions: [actionConfig],
-      modules: [{ name: "module-1", actions: ["act1"] }],
+      modules: [{ name: "module-1", variables: {}, actions: ["act1"] }],
     });
 
     const summary = await runner.executePlan({ planId: "p1", config });
@@ -197,7 +203,7 @@ describe("Runner", () => {
 
     const config = createConfig({
       actions: [actionConfig],
-      modules: [{ name: "module-1", actions: ["act1"] }],
+      modules: [{ name: "module-1", variables: {}, actions: ["act1"] }],
     });
 
     const summary = await runner.executePlan({ planId: "p1", config });
@@ -231,12 +237,12 @@ describe("Runner", () => {
 
     const config = createConfig({
       actions: [actionConfig],
-      modules: [{ name: "module-1", actions: ["act1"] }],
+      modules: [{ name: "module-1", variables: {}, actions: ["act1"] }],
     });
 
     await runner.executePlan({ planId: "p1", config });
 
-    expect(mocks.navigateWithPlaywright).not.toHaveBeenCalled();
+    expect(mocks.browserNavigate).not.toHaveBeenCalled();
     expect(executeAction).not.toHaveBeenCalled();
   });
 });
