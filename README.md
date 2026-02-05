@@ -45,7 +45,7 @@ A powerful CLI tool that automates [OpenID Connect Conformance Suite](https://ww
 
 - **Node.js** 18 or higher
 - **npm** or **yarn**
-- Playwright-supported browsers (installed automatically)
+- Playwright-supported browsers
 
 ## Installation
 
@@ -258,36 +258,6 @@ Example:
 ```
 
 **Note:** Browser actions within a module share the same browser session, preserving cookies and state.
-
-#### Migration from callback_to
-
-If you have existing configs using `callback_to`, convert them to browser actions:
-
-**Old:**
-```json
-{
-  "name": "approve",
-  "endpoint": "https://api.com/approve",
-  "method": "POST",
-  "callback_to": "{{redirect_url}}"
-}
-```
-
-**New:**
-```json
-{
-  "name": "approve",
-  "type": "api",
-  "endpoint": "https://api.com/approve",
-  "method": "POST"
-},
-{
-  "name": "navigate_callback",
-  "type": "browser",
-  "operation": "navigate",
-  "url": "{{redirect_url}}"
-}
-```
 
 ## CLI Usage
 
