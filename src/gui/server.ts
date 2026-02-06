@@ -98,6 +98,9 @@ export class OidcAutopilotDashboard {
   private finalOutcome: ExecutionSummary | null = null;
   private errorDetail: string | null = null;
   private moduleCards: ModuleCard[] = [];
+  private abortController: AbortController | null = null;
+  private activeApi: ConformanceApi | null = null;
+  private activeRunnerIds: string[] = [];
 
   constructor(private readonly listenPort: number) {
     this.expressApp.use(express.json());
@@ -242,6 +245,9 @@ export class OidcAutopilotDashboard {
     this.executionInFlight = true;
     this.stoppedByUser = false;
     this.moduleCards = [];
+    this.abortController = new AbortController();
+    this.activeApi = null;
+    this.activeRunnerIds = [];
 
     rs.status(202).json({ accepted: true });
 
@@ -268,6 +274,25 @@ export class OidcAutopilotDashboard {
     this.executionInFlight = false;
     this.errorDetail = "Stopped by user";
 
+    // Abort the background execution
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+
+    // Delete active runner(s) on the remote conformance server
+    if (this.activeApi && this.activeRunnerIds.length > 0) {
+      const api = this.activeApi;
+      const ids = [...this.activeRunnerIds];
+      this.activeRunnerIds = [];
+
+      for (const runnerId of ids) {
+        api.deleteRunner(runnerId).catch((err) => {
+          console.error(`[GUI] Failed to delete runner ${runnerId} on remote server: ${err instanceof Error ? err.message : String(err)}`);
+        });
+      }
+    }
+
     // Mark all non-finished cards as interrupted
     for (const card of this.moduleCards) {
       if (card.status !== "FINISHED") {
@@ -286,6 +311,8 @@ export class OidcAutopilotDashboard {
     resolvedCfgPath: string, planId: string, tok: string,
     hostUrl: string, pollSec: number, toutSec: number, hdls: boolean,
   ): void {
+    const signal = this.abortController?.signal;
+
     // Build a logger that feeds into our SSE pipeline
     const logger = createLogger({
       onLine: (severity: string, message: string, context?: LogContext) => {
@@ -324,7 +351,17 @@ export class OidcAutopilotDashboard {
       this.broadcastModuleList(this.moduleCards);
 
       const api = new ConformanceApi({ baseUrl: hostUrl, token: tok });
-      const runner = new Runner({ api, pollInterval: pollSec, timeout: toutSec, headless: hdls, logger });
+      this.activeApi = api;
+
+      // Wrap registerRunner to track active runner IDs for remote cancellation
+      const originalRegister = api.registerRunner.bind(api);
+      api.registerRunner = async (...args: Parameters<typeof api.registerRunner>) => {
+        const runnerId = await originalRegister(...args);
+        this.activeRunnerIds.push(runnerId);
+        return runnerId;
+      };
+
+      const runner = new Runner({ api, pollInterval: pollSec, timeout: toutSec, headless: hdls, logger, signal });
       const result = await runner.executePlan({ planId, config: planCfg });
 
       if (this.stoppedByUser) return;
