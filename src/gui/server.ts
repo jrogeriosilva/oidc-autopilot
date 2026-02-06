@@ -100,7 +100,7 @@ export class OidcAutopilotDashboard {
   private moduleCards: ModuleCard[] = [];
   private abortController: AbortController | null = null;
   private activeApi: ConformanceApi | null = null;
-  private activeRunnerIds: string[] = [];
+  private activeRunners: Array<{ runnerId: string; moduleName: string }> = [];
 
   constructor(private readonly listenPort: number) {
     this.expressApp.use(express.json());
@@ -185,7 +185,7 @@ export class OidcAutopilotDashboard {
   }
 
   private broadcastStopped(): void {
-    const wire = `event: stopped\ndata: {}\n\n`;
+    const wire = `event: stopped\ndata: ${JSON.stringify({ cards: this.moduleCards })}\n\n`;
     for (const conn of this.activeSseConnections) conn.write(wire);
   }
 
@@ -247,7 +247,7 @@ export class OidcAutopilotDashboard {
     this.moduleCards = [];
     this.abortController = new AbortController();
     this.activeApi = null;
-    this.activeRunnerIds = [];
+    this.activeRunners = [];
 
     rs.status(202).json({ accepted: true });
 
@@ -280,29 +280,76 @@ export class OidcAutopilotDashboard {
       this.abortController = null;
     }
 
-    // Delete active runner(s) on the remote conformance server
-    if (this.activeApi && this.activeRunnerIds.length > 0) {
-      const api = this.activeApi;
-      const ids = [...this.activeRunnerIds];
-      this.activeRunnerIds = [];
+    // Respond immediately, then perform remote cleanup in the background
+    rs.json({ stopped: true });
 
-      for (const runnerId of ids) {
-        api.deleteRunner(runnerId).catch((err) => {
-          console.error(`[GUI] Failed to delete runner ${runnerId} on remote server: ${err instanceof Error ? err.message : String(err)}`);
-        });
+    this.stopRunnersRemotely();
+  }
+
+  /**
+   * For each active runner:
+   *   1. DELETE /api/runner/{runnerId} — stop the test remotely
+   *   2. GET /api/info/{runnerId}     — capture the final status
+   *   3. Update the corresponding card and broadcast to the frontend
+   */
+  private async stopRunnersRemotely(): Promise<void> {
+    const api = this.activeApi;
+    const runners = [...this.activeRunners];
+    this.activeRunners = [];
+
+    if (!api || runners.length === 0) {
+      // No remote runners to clean up — just update cards locally
+      for (const card of this.moduleCards) {
+        if (card.status !== "FINISHED") {
+          card.status = "INTERRUPTED";
+          card.lastMessage = "Stopped by user";
+          this.broadcastModuleUpdate(card);
+        }
+      }
+      this.broadcastStopped();
+      return;
+    }
+
+    for (const { runnerId, moduleName } of runners) {
+      const card = this.moduleCards.find((c) => c.name === moduleName);
+
+      try {
+        // Step 1 — Delete the runner on the remote server
+        await api.deleteRunner(runnerId);
+      } catch (err) {
+        console.error(`[GUI] Failed to delete runner ${runnerId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+
+      try {
+        // Step 2 — Query the remote server for the actual final status
+        const info = await api.getModuleInfo(runnerId);
+        if (card) {
+          card.status = info.status;
+          card.result = info.result;
+          card.lastMessage = `${info.status} (${info.result})`;
+          this.broadcastModuleUpdate(card);
+        }
+      } catch (err) {
+        // If info query fails, fall back to INTERRUPTED
+        console.error(`[GUI] Failed to get info for runner ${runnerId}: ${err instanceof Error ? err.message : String(err)}`);
+        if (card) {
+          card.status = "INTERRUPTED";
+          card.lastMessage = "Stopped by user";
+          this.broadcastModuleUpdate(card);
+        }
       }
     }
 
-    // Mark all non-finished cards as interrupted
+    // Mark any remaining non-finished cards that weren't associated with a runner
     for (const card of this.moduleCards) {
-      if (card.status !== "FINISHED") {
+      if (card.status !== "FINISHED" && card.status !== "INTERRUPTED") {
         card.status = "INTERRUPTED";
         card.lastMessage = "Stopped by user";
+        this.broadcastModuleUpdate(card);
       }
     }
 
     this.broadcastStopped();
-    rs.json({ stopped: true });
   }
 
   // ── Background plan execution ───────────────────────
@@ -355,9 +402,9 @@ export class OidcAutopilotDashboard {
 
       // Wrap registerRunner to track active runner IDs for remote cancellation
       const originalRegister = api.registerRunner.bind(api);
-      api.registerRunner = async (...args: Parameters<typeof api.registerRunner>) => {
-        const runnerId = await originalRegister(...args);
-        this.activeRunnerIds.push(runnerId);
+      api.registerRunner = async (planIdArg: string, testName: string, capture?: any) => {
+        const runnerId = await originalRegister(planIdArg, testName, capture);
+        this.activeRunners.push({ runnerId, moduleName: testName });
         return runnerId;
       };
 

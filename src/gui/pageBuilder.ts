@@ -393,10 +393,18 @@ function jsBlock(): string {
     try { handlePlanDone(JSON.parse(ev.data)); } catch(_) {}
   });
 
-  evtSource.addEventListener('stopped', function() {
+  evtSource.addEventListener('stopped', function(ev) {
     setBadge('errored', 'Stopped');
     setRunning(false);
     appendLog('error', 'Execution stopped by user.');
+    try {
+      var d = JSON.parse(ev.data);
+      if (d.cards) {
+        for (var i = 0; i < d.cards.length; i++) {
+          updateCard(d.cards[i]);
+        }
+      }
+    } catch(_) {}
   });
 
   // ── Stop button ──
