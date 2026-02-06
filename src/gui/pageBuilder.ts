@@ -318,7 +318,8 @@ function jsBlock(): string {
       '<span class="tc tc-total">' + outcome.passed + '/' + outcome.total + '</span>' +
       '<span class="tc tc-passed">Passed: ' + outcome.passed + '</span>' +
       '<span class="tc tc-failed">Failed: ' + outcome.failed + '</span>' +
-      (outcome.warning > 0 ? '<span class="tc tc-warning">Warn: ' + outcome.warning + '</span>' : '');
+      (outcome.warning > 0 ? '<span class="tc tc-warning">Warn: ' + outcome.warning + '</span>' : '') +
+      (skippedAndInterrupted > 0 ? '<span class="tc tc-total">Other: ' + skippedAndInterrupted + '</span>' : '');
   }
 
   function handlePlanDone(outcome) {
