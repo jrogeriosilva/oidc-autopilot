@@ -166,4 +166,17 @@ export class ConformanceApi {
     );
   }
 
+  async deleteRunner(runnerId: string): Promise<void> {
+    const url = this.client.buildUrl(`api/runner/${runnerId}`);
+    await this.client.requestJson<unknown>(
+      url,
+      {
+        method: "DELETE",
+        headers: this.client.getAuthHeaders(),
+      },
+      200,
+      { allowNonJson: true }
+    );
+  }
+
 }

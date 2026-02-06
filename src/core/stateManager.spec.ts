@@ -302,5 +302,25 @@ describe('StateManager', () => {
 
       expect(captured.authCode).toBe('ABC123');
     });
+
+    it('should return INTERRUPTED immediately when abort signal is set', async () => {
+      const abortController = new AbortController();
+      const abortableManager = new StateManager(mockApi, 0.1, 5, mockLogger, abortController.signal);
+
+      // Abort before polling starts
+      abortController.abort();
+
+      const result = await abortableManager.pollUntilTerminal(
+        'test-runner-id',
+        [],
+        {},
+        {}
+      );
+
+      expect(result.state).toBe('INTERRUPTED');
+      expect(result.info.result).toBe('UNKNOWN');
+      // Should not have made any API calls
+      expect(mockApi.getModuleInfo).not.toHaveBeenCalled();
+    });
   });
 });

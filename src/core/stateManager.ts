@@ -49,7 +49,8 @@ export class StateManager {
     private readonly api: ConformanceApi,
     private readonly pollIntervalSeconds: number,
     private readonly timeoutSeconds: number,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    private readonly signal?: AbortSignal,
   ) {}
 
   /**
@@ -77,6 +78,17 @@ export class StateManager {
     let lastState: TestState = "CREATED";
 
     while (true) {
+      // Check abort signal
+      if (this.signal?.aborted) {
+        return {
+          state: "INTERRUPTED" as const,
+          info: {
+            status: lastState,
+            result: "UNKNOWN" as TestResult,
+          },
+        };
+      }
+
       // Check timeout
       const elapsed = Date.now() - startTime;
       if (elapsed > timeoutMs) {
