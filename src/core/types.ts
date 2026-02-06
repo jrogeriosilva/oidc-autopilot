@@ -43,4 +43,5 @@ export interface RunnerOptions {
   timeout: number;
   headless: boolean;
   logger: Logger;
+  signal?: AbortSignal;
 }

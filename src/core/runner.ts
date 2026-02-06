@@ -13,6 +13,7 @@ export class Runner {
   private readonly timeout: number;
   private readonly headless: boolean;
   private readonly logger: Logger;
+  private readonly signal?: AbortSignal;
 
   constructor(options: RunnerOptions) {
     this.api = options.api;
@@ -20,6 +21,7 @@ export class Runner {
     this.timeout = options.timeout;
     this.headless = options.headless;
     this.logger = options.logger;
+    this.signal = options.signal;
   }
 
   async executePlan({
@@ -44,6 +46,10 @@ export class Runner {
       Execute each module in sequence
     */
     for (const moduleConfig of config.modules) {
+      if (this.signal?.aborted) {
+        break;
+      }
+
       const result = await this.executeModule({
         planId,
         moduleConfig,
@@ -156,7 +162,8 @@ export class Runner {
         this.api,
         this.pollInterval,
         this.timeout,
-        this.logger
+        this.logger,
+        this.signal,
       );
 
       // Poll until terminal state

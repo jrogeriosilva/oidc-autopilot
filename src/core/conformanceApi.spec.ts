@@ -181,4 +181,27 @@ describe("ConformanceApi", () => {
 			{ capture: undefined }
 		);
 	});
+
+	test("deleteRunner sends DELETE to runner endpoint", async () => {
+		const { ConformanceApi, mockClient } = setup();
+
+		mockClient.buildUrl.mockReturnValue("https://example.com/api/runner/runner-1");
+		mockClient.getAuthHeaders.mockReturnValue({ Authorization: "Bearer token" });
+		mockClient.requestJson.mockResolvedValue({});
+
+		const api = createApi(ConformanceApi);
+
+		await api.deleteRunner("runner-1");
+
+		expect(mockClient.buildUrl).toHaveBeenCalledWith("api/runner/runner-1");
+		expect(mockClient.requestJson).toHaveBeenCalledWith(
+			"https://example.com/api/runner/runner-1",
+			{
+				method: "DELETE",
+				headers: { Authorization: "Bearer token" },
+			},
+			200,
+			{ allowNonJson: true }
+		);
+	});
 });
