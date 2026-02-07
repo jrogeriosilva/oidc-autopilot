@@ -30,6 +30,7 @@ ${cssBlock()}
 <body>
 <header class="topbar">
   <h1>OIDC Autopilot</h1>
+  <a href="/config-manager" class="topbar-link">Config Manager</a>
   <span id="statusBadge" class="badge idle">Idle</span>
   <div class="topbar-counters" id="topCounters"></div>
 </header>
@@ -123,6 +124,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f1117;color:#c9
 /* ── Topbar ── */
 .topbar{display:flex;align-items:center;gap:1rem;padding:.6rem 1.5rem;background:#161b22;border-bottom:1px solid #30363d;flex-shrink:0}
 .topbar h1{font-size:1.2rem;font-weight:600;color:#58a6ff}
+.topbar-link{font-size:.82rem;color:#8b949e;text-decoration:none;padding:4px 10px;border:1px solid #30363d;border-radius:6px;transition:color .15s,border-color .15s}
+.topbar-link:hover{color:#58a6ff;border-color:#58a6ff}
 .badge{font-size:.7rem;padding:2px 10px;border-radius:12px;font-weight:600;text-transform:uppercase}
 .badge.idle{background:#30363d;color:#8b949e}
 .badge.running{background:#1f6feb33;color:#58a6ff;animation:pulse 1.5s infinite}

@@ -69,6 +69,18 @@ const registerResponseSchema = z.object({
   id: z.string().min(1),
 });
 
+const planInfoModuleSchema = z.object({
+  testModule: z.string().min(1),
+});
+
+const planInfoSchema = z.object({
+  planName: z.string(),
+  displayName: z.string().optional().default(""),
+  modules: z.array(planInfoModuleSchema).default([]),
+});
+
+export type PlanInfo = z.infer<typeof planInfoSchema>;
+
 export class ConformanceApi {
   private readonly client: HttpClient;
 
@@ -164,6 +176,19 @@ export class ConformanceApi {
       [200, 201],
       { capture }
     );
+  }
+
+  async getPlanInfo(planName: string): Promise<PlanInfo> {
+    const url = this.client.buildUrl(`api/plan/info/${encodeURIComponent(planName)}`);
+    const response = await this.client.requestJson<unknown>(
+      url,
+      {
+        method: "GET",
+        headers: this.client.getAuthHeaders(),
+      },
+      200
+    );
+    return planInfoSchema.parse(response);
   }
 
   async deleteRunner(runnerId: string): Promise<void> {
