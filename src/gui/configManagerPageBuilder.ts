@@ -70,12 +70,10 @@ ${cssBlock()}
   <!-- Right panel -->
   <div class="cm-panel cm-right">
     <details class="cm-section" open>
-      <summary class="cm-section-title">Modules</summary>
+      <summary class="cm-section-title">Available Modules</summary>
       <div class="cm-section-body">
         <div class="module-fetch-row">
-          <select id="selPlan" class="toolbar-select">
-            <option value="">— select plan —</option>
-          </select>
+          <input type="text" id="inpPlanName" class="toolbar-input" placeholder="e.g. fapi1-advanced-final-test-plan" style="flex:1;min-width:0">
           <button type="button" class="btn-toolbar" id="btnFetchModules">Fetch</button>
         </div>
         <input type="text" id="inpModuleFilter" class="toolbar-input module-filter" placeholder="Filter modules...">
@@ -87,8 +85,15 @@ ${cssBlock()}
       </div>
     </details>
 
+    <details class="cm-section" open>
+      <summary class="cm-section-title">Selected Modules</summary>
+      <div class="cm-section-body">
+        <div id="selectedModulesList" class="selected-modules-list"></div>
+      </div>
+    </details>
+
     <details class="cm-section" id="moduleDetailSection" hidden>
-      <summary class="cm-section-title">Module Detail</summary>
+      <summary class="cm-section-title">Module Config</summary>
       <div class="cm-section-body" id="moduleDetailBody"></div>
     </details>
   </div>
@@ -102,10 +107,6 @@ ${jsBlock()}
 </script>
 </body>
 </html>`;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 // ── CSS ─────────────────────────────────────────────
@@ -169,6 +170,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f1117;color:#c9
 .btn-small{background:none;border:1px solid #30363d;border-radius:4px;color:#8b949e;font-size:.72rem;padding:2px 8px;cursor:pointer}
 .btn-small:hover{color:#c9d1d9;border-color:#8b949e}
 
+/* ── Order buttons ── */
+.order-btn{background:none;border:1px solid #30363d;border-radius:4px;color:#8b949e;font-size:.7rem;padding:1px 6px;cursor:pointer;line-height:1.2}
+.order-btn:hover{color:#c9d1d9;border-color:#8b949e}
+
 /* ── Action editor ── */
 .action-editor{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:.8rem;margin-top:.5rem}
 .ae-row{display:flex;gap:.5rem;margin-bottom:.4rem;align-items:center}
@@ -180,10 +185,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f1117;color:#c9
 
 /* ── Modules ── */
 .module-fetch-row{display:flex;gap:.4rem;margin-bottom:.4rem}
-.module-fetch-row .toolbar-select{flex:1;min-width:0}
 .module-filter{width:100%;margin-bottom:.4rem}
 .module-bulk-actions{display:flex;gap:.3rem;margin-bottom:.4rem}
-.module-list{max-height:400px;overflow-y:auto;border:1px solid #21262d;border-radius:4px;background:#0d1117}
+.module-list{max-height:300px;overflow-y:auto;border:1px solid #21262d;border-radius:4px;background:#0d1117}
 .module-item{display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;border-bottom:1px solid #21262d;font-size:.8rem;cursor:pointer;transition:background .1s}
 .module-item:last-child{border-bottom:none}
 .module-item:hover{background:#161b22}
@@ -191,10 +195,21 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f1117;color:#c9
 .module-item input[type=checkbox]{margin:0;cursor:pointer}
 .module-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+/* ── Selected modules list ── */
+.selected-modules-list{max-height:300px;overflow-y:auto;border:1px solid #21262d;border-radius:4px;background:#0d1117}
+.selected-module-item{display:flex;align-items:center;gap:.4rem;padding:.35rem .6rem;border-bottom:1px solid #21262d;font-size:.8rem;transition:background .1s;cursor:pointer}
+.selected-module-item:last-child{border-bottom:none}
+.selected-module-item:hover{background:#161b22}
+.selected-module-item.active{background:#1f6feb22}
+.selected-module-item .order-btns{display:flex;gap:.2rem;flex-shrink:0}
+.selected-module-item-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:#e6edf3}
+.selected-module-item-actions{display:flex;gap:.3rem;flex-shrink:0}
+
 /* ── Module detail ── */
 .md-sub{font-size:.78rem;color:#8b949e;margin-bottom:.3rem;font-weight:600}
-.md-action-check{display:flex;align-items:center;gap:.4rem;padding:.2rem 0;font-size:.8rem}
-.md-action-check input{margin:0}
+.md-action-row{display:flex;align-items:center;gap:.4rem;padding:.25rem 0;font-size:.8rem}
+.md-action-row input[type=checkbox]{margin:0}
+.md-action-row .order-btns{display:flex;gap:.2rem}
 
 /* ── Status bar ── */
 .status-bar{flex-shrink:0;padding:.4rem 1.5rem;background:#161b22;border-top:1px solid #30363d;font-size:.75rem;color:#8b949e}
@@ -226,7 +241,7 @@ function jsBlock(): string {
 
   // ── DOM refs ──
   var selConfig = document.getElementById('selConfig');
-  var selPlan = document.getElementById('selPlan');
+  var inpPlanName = document.getElementById('inpPlanName');
   var inpFilename = document.getElementById('inpFilename');
   var inpModuleFilter = document.getElementById('inpModuleFilter');
   var dirtyBadge = document.getElementById('dirtyBadge');
@@ -236,6 +251,7 @@ function jsBlock(): string {
   var actionCards = document.getElementById('actionCards');
   var actionEditor = document.getElementById('actionEditor');
   var moduleList = document.getElementById('moduleList');
+  var selectedModulesList = document.getElementById('selectedModulesList');
   var moduleDetailSection = document.getElementById('moduleDetailSection');
   var moduleDetailBody = document.getElementById('moduleDetailBody');
 
@@ -249,7 +265,7 @@ function jsBlock(): string {
   document.getElementById('btnAddVar').addEventListener('click', addVariable);
   document.getElementById('btnAddCapture').addEventListener('click', addCaptureVar);
   document.getElementById('btnAddAction').addEventListener('click', addAction);
-  document.getElementById('btnFetchModules').addEventListener('click', function() { fetchModules(selPlan.value); });
+  document.getElementById('btnFetchModules').addEventListener('click', function() { fetchModules(inpPlanName.value.trim()); });
   document.getElementById('btnSelectAll').addEventListener('click', selectAllModules);
   document.getElementById('btnDeselectAll').addEventListener('click', deselectAllModules);
   inpModuleFilter.addEventListener('input', function() { renderModuleCheckboxes(); });
@@ -257,22 +273,12 @@ function jsBlock(): string {
   // ── Config list ──
   function loadConfigList() {
     fetch('/api/configs').then(function(r) { return r.json(); }).then(function(d) {
-      selConfig.innerHTML = '<option value="">— select config —</option>';
+      selConfig.innerHTML = '<option value="">\\u2014 select config \\u2014</option>';
       (d.files || []).forEach(function(f) {
         var opt = document.createElement('option');
         opt.value = f;
         opt.textContent = f;
         selConfig.appendChild(opt);
-      });
-    }).catch(function() {});
-
-    fetch('/api/plan-names').then(function(r) { return r.json(); }).then(function(d) {
-      selPlan.innerHTML = '<option value="">— select plan —</option>';
-      (d.planNames || []).forEach(function(p) {
-        var opt = document.createElement('option');
-        opt.value = p;
-        opt.textContent = p;
-        selPlan.appendChild(opt);
       });
     }).catch(function() {});
   }
@@ -366,7 +372,7 @@ function jsBlock(): string {
     inpFilename.value = '';
     selConfig.value = '';
     renderAll();
-    setStatus('New config — enter a filename and start editing', false);
+    setStatus('New config \\u2014 enter a filename and start editing', false);
   }
 
   // ── Build payload from state ──
@@ -407,6 +413,7 @@ function jsBlock(): string {
     renderCaptureVars();
     renderActions();
     renderModuleCheckboxes();
+    renderSelectedModules();
     renderModuleDetail();
     actionEditor.hidden = true;
   }
@@ -493,7 +500,7 @@ function jsBlock(): string {
     renderCaptureVars();
   }
 
-  // ── Actions ──
+  // ── Actions (with ordering) ──
   function renderActions() {
     actionCards.innerHTML = '';
     for (var i = 0; i < state.config.actions.length; i++) {
@@ -501,6 +508,30 @@ function jsBlock(): string {
         var a = state.config.actions[idx];
         var card = document.createElement('div');
         card.className = 'action-card';
+
+        // Order buttons
+        var orderBtns = document.createElement('div');
+        orderBtns.className = 'order-btns';
+        orderBtns.style.display = 'flex';
+        orderBtns.style.gap = '.2rem';
+        orderBtns.style.flexShrink = '0';
+
+        var btnUp = document.createElement('button');
+        btnUp.className = 'order-btn btn-move-up';
+        btnUp.textContent = '\\u2191';
+        btnUp.type = 'button';
+        btnUp.disabled = idx === 0;
+        btnUp.addEventListener('click', function(e) { e.stopPropagation(); moveAction(idx, -1); });
+
+        var btnDown = document.createElement('button');
+        btnDown.className = 'order-btn btn-move-down';
+        btnDown.textContent = '\\u2193';
+        btnDown.type = 'button';
+        btnDown.disabled = idx === state.config.actions.length - 1;
+        btnDown.addEventListener('click', function(e) { e.stopPropagation(); moveAction(idx, 1); });
+
+        orderBtns.appendChild(btnUp);
+        orderBtns.appendChild(btnDown);
 
         var nameEl = document.createElement('span');
         nameEl.className = 'action-card-name';
@@ -527,10 +558,26 @@ function jsBlock(): string {
         });
 
         btns.appendChild(btnEdit); btns.appendChild(btnDel);
+        card.appendChild(orderBtns);
         card.appendChild(nameEl); card.appendChild(badge); card.appendChild(btns);
         card.addEventListener('click', function() { renderActionEditor(idx); });
         actionCards.appendChild(card);
       })(i);
+    }
+  }
+
+  function moveAction(idx, direction) {
+    var newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= state.config.actions.length) return;
+    var tmp = state.config.actions[idx];
+    state.config.actions[idx] = state.config.actions[newIdx];
+    state.config.actions[newIdx] = tmp;
+    markDirty();
+    renderActions();
+    if (state.editingActionIndex === idx) {
+      state.editingActionIndex = newIdx;
+    } else if (state.editingActionIndex === newIdx) {
+      state.editingActionIndex = idx;
     }
   }
 
@@ -658,9 +705,9 @@ function jsBlock(): string {
     return row;
   }
 
-  // ── Modules ──
+  // ── Modules: Fetch ──
   function fetchModules(planName) {
-    if (!planName) { setStatus('Select a plan first', true); return; }
+    if (!planName) { setStatus('Enter a plan name first', true); return; }
     setStatus('Fetching modules for ' + planName + '...', false);
     fetch('/api/plan/info/' + encodeURIComponent(planName))
       .then(function(r) {
@@ -675,6 +722,7 @@ function jsBlock(): string {
       .catch(function(err) { setStatus('Fetch failed: ' + err.message, true); });
   }
 
+  // ── Available Modules: checkbox list ──
   function renderModuleCheckboxes() {
     moduleList.innerHTML = '';
     var filter = (inpModuleFilter.value || '').toLowerCase();
@@ -695,12 +743,15 @@ function jsBlock(): string {
         if (filter && name.toLowerCase().indexOf(filter) === -1) return;
 
         var item = document.createElement('div');
-        item.className = 'module-item' + (state.selectedModuleName === name ? ' selected' : '');
+        item.className = 'module-item';
 
         var cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = configModuleNames.indexOf(name) !== -1;
-        cb.addEventListener('change', function() { toggleModule(name, cb.checked); });
+        cb.addEventListener('change', function() {
+          toggleModule(name, cb.checked);
+          renderSelectedModules();
+        });
 
         var lbl = document.createElement('span');
         lbl.className = 'module-item-name';
@@ -708,13 +759,6 @@ function jsBlock(): string {
 
         item.appendChild(cb);
         item.appendChild(lbl);
-
-        lbl.addEventListener('click', function() {
-          state.selectedModuleName = name;
-          renderModuleCheckboxes();
-          renderModuleDetail();
-        });
-
         moduleList.appendChild(item);
       })(allNames[j]);
     }
@@ -730,6 +774,10 @@ function jsBlock(): string {
       markDirty();
     } else if (!checked && idx !== -1) {
       state.config.modules.splice(idx, 1);
+      if (state.selectedModuleName === name) {
+        state.selectedModuleName = null;
+        renderModuleDetail();
+      }
       markDirty();
     }
   }
@@ -751,6 +799,7 @@ function jsBlock(): string {
     }
     markDirty();
     renderModuleCheckboxes();
+    renderSelectedModules();
   }
 
   function deselectAllModules() {
@@ -759,11 +808,115 @@ function jsBlock(): string {
       if (filter && m.name.toLowerCase().indexOf(filter) === -1) return true;
       return false;
     });
+    state.selectedModuleName = null;
     markDirty();
     renderModuleCheckboxes();
+    renderSelectedModules();
+    renderModuleDetail();
   }
 
-  // ── Module detail ──
+  // ── Selected Modules: ordered list ──
+  function renderSelectedModules() {
+    selectedModulesList.innerHTML = '';
+
+    if (state.config.modules.length === 0) {
+      var empty = document.createElement('div');
+      empty.style.cssText = 'padding:.5rem .6rem;font-size:.78rem;color:#8b949e';
+      empty.textContent = 'No modules selected. Check modules above to add them.';
+      selectedModulesList.appendChild(empty);
+      return;
+    }
+
+    for (var i = 0; i < state.config.modules.length; i++) {
+      (function(idx) {
+        var mod = state.config.modules[idx];
+        var item = document.createElement('div');
+        item.className = 'selected-module-item' + (state.selectedModuleName === mod.name ? ' active' : '');
+
+        // Order buttons
+        var orderBtns = document.createElement('div');
+        orderBtns.className = 'order-btns';
+
+        var btnUp = document.createElement('button');
+        btnUp.className = 'order-btn btn-move-up';
+        btnUp.textContent = '\\u2191';
+        btnUp.type = 'button';
+        btnUp.disabled = idx === 0;
+        btnUp.addEventListener('click', function(e) { e.stopPropagation(); moveModule(idx, -1); });
+
+        var btnDown = document.createElement('button');
+        btnDown.className = 'order-btn btn-move-down';
+        btnDown.textContent = '\\u2193';
+        btnDown.type = 'button';
+        btnDown.disabled = idx === state.config.modules.length - 1;
+        btnDown.addEventListener('click', function(e) { e.stopPropagation(); moveModule(idx, 1); });
+
+        orderBtns.appendChild(btnUp);
+        orderBtns.appendChild(btnDown);
+
+        var nameEl = document.createElement('span');
+        nameEl.className = 'selected-module-item-name';
+        nameEl.textContent = mod.name;
+
+        var actions = document.createElement('div');
+        actions.className = 'selected-module-item-actions';
+
+        var btnConfig = document.createElement('button');
+        btnConfig.className = 'btn-small';
+        btnConfig.textContent = 'config';
+        btnConfig.type = 'button';
+        btnConfig.addEventListener('click', function(e) {
+          e.stopPropagation();
+          state.selectedModuleName = mod.name;
+          renderSelectedModules();
+          renderModuleDetail();
+        });
+
+        var btnRemove = document.createElement('button');
+        btnRemove.className = 'btn-small btn-remove';
+        btnRemove.textContent = 'x';
+        btnRemove.type = 'button';
+        btnRemove.addEventListener('click', function(e) {
+          e.stopPropagation();
+          state.config.modules.splice(idx, 1);
+          if (state.selectedModuleName === mod.name) {
+            state.selectedModuleName = null;
+            renderModuleDetail();
+          }
+          markDirty();
+          renderSelectedModules();
+          renderModuleCheckboxes();
+        });
+
+        actions.appendChild(btnConfig);
+        actions.appendChild(btnRemove);
+
+        item.appendChild(orderBtns);
+        item.appendChild(nameEl);
+        item.appendChild(actions);
+
+        item.addEventListener('click', function() {
+          state.selectedModuleName = mod.name;
+          renderSelectedModules();
+          renderModuleDetail();
+        });
+
+        selectedModulesList.appendChild(item);
+      })(i);
+    }
+  }
+
+  function moveModule(idx, direction) {
+    var newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= state.config.modules.length) return;
+    var tmp = state.config.modules[idx];
+    state.config.modules[idx] = state.config.modules[newIdx];
+    state.config.modules[newIdx] = tmp;
+    markDirty();
+    renderSelectedModules();
+  }
+
+  // ── Module detail / config ──
   function renderModuleDetail() {
     if (!state.selectedModuleName) {
       moduleDetailSection.hidden = true;
@@ -794,23 +947,71 @@ function jsBlock(): string {
       return;
     }
 
-    // Action assignment
+    // ── Assigned Actions (orderable) ──
     if (state.config.actions.length > 0) {
       var aTitle = document.createElement('div');
       aTitle.className = 'md-sub';
-      aTitle.textContent = 'Assign Actions:';
+      aTitle.textContent = 'Assigned Actions:';
       aTitle.style.marginTop = '.5rem';
       moduleDetailBody.appendChild(aTitle);
 
       var assignedActions = modCfg.actions || [];
 
-      for (var a = 0; a < state.config.actions.length; a++) {
-        (function(actionName) {
+      // Build ordered list: checked first (in their order), then unchecked
+      var checkedNames = [];
+      var uncheckedNames = [];
+      for (var c = 0; c < assignedActions.length; c++) {
+        // Only include actions that still exist in global actions
+        var stillExists = false;
+        for (var g = 0; g < state.config.actions.length; g++) {
+          if (state.config.actions[g].name === assignedActions[c]) { stillExists = true; break; }
+        }
+        if (stillExists) checkedNames.push(assignedActions[c]);
+      }
+      for (var g2 = 0; g2 < state.config.actions.length; g2++) {
+        var aName = state.config.actions[g2].name;
+        if (checkedNames.indexOf(aName) === -1) uncheckedNames.push(aName);
+      }
+
+      var orderedList = checkedNames.concat(uncheckedNames);
+
+      for (var ai = 0; ai < orderedList.length; ai++) {
+        (function(actionName, isChecked, checkedIdx) {
           var row = document.createElement('div');
-          row.className = 'md-action-check';
+          row.className = 'md-action-row';
+
+          // Order buttons (only for checked actions)
+          var orderBtns = document.createElement('div');
+          orderBtns.className = 'order-btns';
+
+          if (isChecked) {
+            var btnUp = document.createElement('button');
+            btnUp.className = 'order-btn btn-move-up';
+            btnUp.textContent = '\\u2191';
+            btnUp.type = 'button';
+            btnUp.disabled = checkedIdx === 0;
+            btnUp.addEventListener('click', function(e) {
+              e.stopPropagation();
+              moveModuleAction(modCfg, checkedIdx, -1);
+            });
+
+            var btnDown = document.createElement('button');
+            btnDown.className = 'order-btn btn-move-down';
+            btnDown.textContent = '\\u2193';
+            btnDown.type = 'button';
+            btnDown.disabled = checkedIdx === checkedNames.length - 1;
+            btnDown.addEventListener('click', function(e) {
+              e.stopPropagation();
+              moveModuleAction(modCfg, checkedIdx, 1);
+            });
+
+            orderBtns.appendChild(btnUp);
+            orderBtns.appendChild(btnDown);
+          }
+
           var cb = document.createElement('input');
           cb.type = 'checkbox';
-          cb.checked = assignedActions.indexOf(actionName) !== -1;
+          cb.checked = isChecked;
           cb.addEventListener('change', function() {
             if (!modCfg.actions) modCfg.actions = [];
             if (cb.checked) {
@@ -819,25 +1020,26 @@ function jsBlock(): string {
               modCfg.actions = modCfg.actions.filter(function(x) { return x !== actionName; });
             }
             markDirty();
+            renderModuleDetail();
           });
+
           var lbl = document.createElement('span');
           lbl.textContent = actionName;
+
+          row.appendChild(orderBtns);
           row.appendChild(cb);
           row.appendChild(lbl);
           moduleDetailBody.appendChild(row);
-        })(state.config.actions[a].name);
+        })(orderedList[ai], checkedNames.indexOf(orderedList[ai]) !== -1, checkedNames.indexOf(orderedList[ai]));
       }
     }
 
-    // Module-level variables
+    // ── Module-level variables ──
     var vTitle = document.createElement('div');
     vTitle.className = 'md-sub';
     vTitle.textContent = 'Module Variables:';
     vTitle.style.marginTop = '.5rem';
     moduleDetailBody.appendChild(vTitle);
-
-    var modVars = modCfg.variables || {};
-    var modVarKeys = Object.keys(modVars);
 
     var modVarContainer = document.createElement('div');
     modVarContainer.id = 'modVarContainer';
@@ -889,6 +1091,17 @@ function jsBlock(): string {
       renderModVars();
     });
     moduleDetailBody.appendChild(btnAddModVar);
+  }
+
+  function moveModuleAction(modCfg, idx, direction) {
+    if (!modCfg.actions) return;
+    var newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= modCfg.actions.length) return;
+    var tmp = modCfg.actions[idx];
+    modCfg.actions[idx] = modCfg.actions[newIdx];
+    modCfg.actions[newIdx] = tmp;
+    markDirty();
+    renderModuleDetail();
   }
 
   // ── Helpers ──

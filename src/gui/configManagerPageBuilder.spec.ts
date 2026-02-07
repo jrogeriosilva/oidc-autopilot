@@ -45,12 +45,16 @@ describe("configManagerPageBuilder", () => {
     expect(html).toContain("Actions");
   });
 
-  it("should include the modules section with plan fetch controls", () => {
-    expect(html).toContain('id="selPlan"');
+  it("should include a text input for plan name instead of a dropdown", () => {
+    expect(html).toContain('id="inpPlanName"');
+    expect(html).not.toContain('id="selPlan"');
     expect(html).toContain('id="btnFetchModules"');
-    expect(html).toContain('id="moduleList"');
     expect(html).toContain('id="inpModuleFilter"');
-    expect(html).toContain("Modules");
+  });
+
+  it("should include the Available Modules section", () => {
+    expect(html).toContain("Available Modules");
+    expect(html).toContain('id="moduleList"');
   });
 
   it("should include select/deselect all buttons for modules", () => {
@@ -58,17 +62,28 @@ describe("configManagerPageBuilder", () => {
     expect(html).toContain('id="btnDeselectAll"');
   });
 
-  it("should include the module detail section", () => {
-    expect(html).toContain('id="moduleDetailSection"');
-    expect(html).toContain('id="moduleDetailBody"');
-    expect(html).toContain("Module Detail");
+  it("should include the Selected Modules section with ordered list", () => {
+    expect(html).toContain("Selected Modules");
+    expect(html).toContain('id="selectedModulesList"');
   });
 
-  it("should include API endpoint references in JavaScript", () => {
+  it("should include ordering buttons (up/down) in CSS and JS", () => {
+    expect(html).toContain("order-btn");
+    expect(html).toContain("btn-move-up");
+    expect(html).toContain("btn-move-down");
+  });
+
+  it("should include the module config detail section", () => {
+    expect(html).toContain('id="moduleDetailSection"');
+    expect(html).toContain('id="moduleDetailBody"');
+    expect(html).toContain("Module Config");
+  });
+
+  it("should reference only valid API endpoints (no /api/plan-names)", () => {
     expect(html).toContain("/api/configs");
-    expect(html).toContain("/api/plan-names");
     expect(html).toContain("/api/plan/info/");
     expect(html).toContain("/api/config/");
+    expect(html).not.toContain("/api/plan-names");
   });
 
   it("should include the status bar", () => {
@@ -87,5 +102,16 @@ describe("configManagerPageBuilder", () => {
     expect(leftPos).toBeGreaterThan(-1);
     expect(rightPos).toBeGreaterThan(-1);
     expect(leftPos).toBeLessThan(rightPos);
+  });
+
+  it("should include CSS for selected modules list", () => {
+    expect(html).toContain("selected-modules-list");
+    expect(html).toContain("selected-module-item");
+  });
+
+  it("should include moveAction and moveModule functions in JS", () => {
+    expect(html).toContain("moveAction");
+    expect(html).toContain("moveModule");
+    expect(html).toContain("moveModuleAction");
   });
 });

@@ -10,7 +10,6 @@ import { CONSTANTS } from "../core/constants";
 import { buildPage } from "./pageBuilder";
 import { buildConfigManagerPage } from "./configManagerPageBuilder";
 import { planConfigSchema } from "../config/schema";
-import { PLAN_NAMES } from "../config/planNames";
 import type { ExecutionSummary } from "../core/types";
 
 /** Shape of a single log line stored for late-joining SSE clients. */
@@ -155,10 +154,6 @@ export class OidcAutopilotDashboard {
 
     this.expressApp.get("/config-manager", (_rq, rs) => {
       rs.type("html").send(buildConfigManagerPage());
-    });
-
-    this.expressApp.get("/api/plan-names", (_rq, rs) => {
-      rs.json({ planNames: PLAN_NAMES });
     });
 
     this.expressApp.get("/api/plan/info/:planName", async (rq, rs) => {
