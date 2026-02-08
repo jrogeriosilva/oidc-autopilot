@@ -19,6 +19,7 @@ export default function LaunchForm({ isRunning, onLaunched, onError }: Props) {
   const [timeout, setTimeout_] = useState(240);
   const [headless, setHeadless] = useState(true);
   const [stopping, setStopping] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   useEffect(() => {
     fetchConfigs()
@@ -65,11 +66,16 @@ export default function LaunchForm({ isRunning, onLaunched, onError }: Props) {
 
   return (
     <section className="shrink-0 bg-bg-secondary border-b border-border px-6">
-      <details open>
-        <summary className="py-2.5 text-sm font-semibold text-text-primary cursor-pointer select-none list-none flex items-center gap-1.5 [&::-webkit-details-marker]:hidden">
-          <span className="text-[0.55rem] inline-block transition-transform [[open]>&]:rotate-90">&#9654;</span>
-          Plan Configuration
-        </summary>
+      <div
+        className="py-2.5 text-sm font-semibold text-text-primary cursor-pointer select-none flex items-center gap-1.5"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <span className={`text-[0.55rem] inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}>&#9654;</span>
+        Plan Configuration
+      </div>
+      <div
+        className={`overflow-hidden transition-[max-height] duration-300 ${isExpanded ? "max-h-[1000px]" : "max-h-0"}`}
+      >
         <form onSubmit={handleSubmit} autoComplete="off" className="pb-3">
           <div className="flex gap-3 flex-wrap mb-2">
             <label className="flex-1 min-w-[180px] text-xs text-text-secondary">
@@ -159,7 +165,7 @@ export default function LaunchForm({ isRunning, onLaunched, onError }: Props) {
             </div>
           </div>
         </form>
-      </details>
+      </div>
     </section>
   );
 }
