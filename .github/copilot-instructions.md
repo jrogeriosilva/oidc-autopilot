@@ -5,7 +5,16 @@
 **oidc-autopilot** is a CLI tool that automates OpenID Connect Conformance Suite tests. It orchestrates test execution by registering test modules, polling their status, handling browser navigation via Playwright, and executing custom HTTP actions when tests enter WAITING state. It also provides a web-based GUI dashboard as an alternative interface.
 
 ## Development Rules
-- Use the playwright MCP if need test the front end.
+
+### Use the mui-mcp server to answer any MUI questions
+- 1. call the "useMuiDocs" tool to fetch the docs of the package relevant in the question
+- 2. call the "fetchDocs" tool to fetch any additional docs if needed using ONLY the URLs present in the returned content.
+- 3. repeat steps 1-2 until you have fetched all relevant docs for the given question
+- 4. use the fetched content to answer the question
+
+### Use the playwright mcp if need test the front end.
+### Use the tavily search mcp for web searchs
+### Use the context7 mcp to get updated documentation
 
 ## Common Commands
 

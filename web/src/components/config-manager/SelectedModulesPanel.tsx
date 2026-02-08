@@ -1,6 +1,11 @@
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import CloseIcon from "@mui/icons-material/Close";
 import type { ModuleConfig } from "../../types/api";
 import { useDragReorder } from "../../hooks/useDragReorder";
-import { GripVertical } from "lucide-react";
 
 interface Props {
   modules: ModuleConfig[];
@@ -21,16 +26,24 @@ export default function SelectedModulesPanel({
 
   if (modules.length === 0) {
     return (
-      <div className="p-2 text-[0.78rem] text-text-secondary">
+      <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
         No modules selected. Check modules above to add them.
-      </div>
+      </Typography>
     );
   }
 
   return (
-    <div className="max-h-[300px] overflow-y-auto border border-[#21262d] rounded bg-bg-input">
+    <Box
+      sx={{
+        maxHeight: 300,
+        overflowY: "auto",
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 1,
+      }}
+    >
       {modules.map((mod, i) => (
-        <div
+        <Box
           key={mod.name}
           draggable
           onDragStart={(e) => drag.onDragStart(e, i)}
@@ -39,35 +52,41 @@ export default function SelectedModulesPanel({
           onDragLeave={drag.onDragLeave}
           onDrop={(e) => drag.onDrop(e, i)}
           onClick={() => onSelect(mod.name)}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 border-b border-[#21262d] last:border-b-0 text-[0.8rem] cursor-pointer hover:bg-bg-secondary transition-colors ${
-            selectedName === mod.name ? "bg-blue-bg/20" : ""
-          }`}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.75,
+            px: 1.5,
+            py: 0.75,
+            borderBottom: 1,
+            borderColor: "divider",
+            cursor: "pointer",
+            "&:last-child": { borderBottom: 0 },
+            "&:hover": { bgcolor: "action.hover" },
+            ...(selectedName === mod.name ? { bgcolor: "action.selected" } : {}),
+          }}
         >
-          <GripVertical
-            size={14}
-            className="text-text-muted cursor-grab hover:text-text-secondary shrink-0"
+          <DragIndicatorIcon
+            fontSize="small"
+            sx={{ color: "text.disabled", cursor: "grab", flexShrink: 0 }}
           />
-          <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-medium text-text-heading">
+          <Typography
+            variant="body2"
+            fontWeight="medium"
+            sx={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >
             {mod.name}
-          </span>
-          <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => onSelect(mod.name)}
-              className="bg-transparent border border-border rounded text-text-secondary text-[0.72rem] px-2 py-0.5 cursor-pointer hover:text-text-primary hover:border-text-secondary"
-            >
+          </Typography>
+          <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+            <Button size="small" onClick={() => onSelect(mod.name)}>
               config
-            </button>
-            <button
-              type="button"
-              onClick={() => onRemove(i)}
-              className="bg-transparent border border-border rounded text-red text-xs px-2 py-0.5 cursor-pointer hover:text-[#ff7b72] hover:border-red"
-            >
-              x
-            </button>
-          </div>
-        </div>
+            </Button>
+            <IconButton size="small" color="error" onClick={() => onRemove(i)}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </Box>
       ))}
-    </div>
+    </Box>
   );
 }

@@ -1,4 +1,11 @@
 import { useState, useEffect } from "react";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
 import type { ActionConfig, ApiActionConfig, BrowserActionConfig } from "../../types/api";
 
 interface Props {
@@ -71,111 +78,107 @@ export default function ActionEditorPanel({ action, onChange, onDone }: Props) {
     }
   };
 
-  const inputCls =
-    "flex-1 px-2 py-1 bg-bg-input border border-border rounded text-text-primary text-[0.8rem] focus:outline-none focus:border-accent";
-  const labelCls = "text-[0.78rem] text-text-secondary min-w-[70px]";
-
   return (
-    <div className="bg-bg-secondary border border-border rounded-lg p-3 mt-2">
-      {/* Name */}
-      <div className="flex gap-2 mb-1.5 items-center">
-        <label className={labelCls}>Name</label>
-        <input
-          type="text"
+    <Paper variant="outlined" sx={{ p: 1.5, mt: 1 }}>
+      <Stack spacing={1}>
+        <TextField
+          label="Name"
           value={action.name}
           onChange={(e) => onChange({ ...action, name: e.target.value.trim() })}
-          className={inputCls}
+          size="small"
+          fullWidth
         />
-      </div>
-
-      {/* Type */}
-      <div className="flex gap-2 mb-1.5 items-center">
-        <label className={labelCls}>Type</label>
-        <select
+        <TextField
+          select
+          label="Type"
           value={action.type}
           onChange={(e) => handleTypeChange(e.target.value)}
-          className={inputCls}
+          size="small"
+          fullWidth
         >
-          <option value="api">api</option>
-          <option value="browser">browser</option>
-        </select>
-      </div>
+          <MenuItem value="api">api</MenuItem>
+          <MenuItem value="browser">browser</MenuItem>
+        </TextField>
 
-      {action.type === "api" ? (
-        <>
-          <div className="flex gap-2 mb-1.5 items-center">
-            <label className={labelCls}>Endpoint</label>
-            <input
-              type="text"
+        {action.type === "api" ? (
+          <>
+            <TextField
+              label="Endpoint"
               value={(action as ApiActionConfig).endpoint}
               onChange={(e) =>
                 onChange({ ...(action as ApiActionConfig), endpoint: e.target.value })
               }
-              className={inputCls}
+              size="small"
+              fullWidth
             />
-          </div>
-          <div className="flex gap-2 mb-1.5 items-center">
-            <label className={labelCls}>Method</label>
-            <select
+            <TextField
+              select
+              label="Method"
               value={(action as ApiActionConfig).method || "POST"}
               onChange={(e) =>
                 onChange({ ...(action as ApiActionConfig), method: e.target.value })
               }
-              className={inputCls}
+              size="small"
+              fullWidth
             >
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="DELETE">DELETE</option>
-            </select>
-          </div>
-          <div className="flex gap-2 mb-1.5 items-start">
-            <label className={`${labelCls} pt-1`}>Payload</label>
-            <div className="flex-1">
-              <textarea
+              <MenuItem value="GET">GET</MenuItem>
+              <MenuItem value="POST">POST</MenuItem>
+              <MenuItem value="PUT">PUT</MenuItem>
+              <MenuItem value="DELETE">DELETE</MenuItem>
+            </TextField>
+            <Box>
+              <TextField
+                label="Payload"
                 value={payloadText}
                 onChange={(e) => setPayloadText(e.target.value)}
                 onBlur={handlePayloadBlur}
                 placeholder='{"key": "value"} (JSON)'
-                className="w-full min-h-[60px] px-2 py-1 bg-bg-input border border-border rounded text-text-primary text-[0.8rem] font-mono focus:outline-none focus:border-accent resize-y"
+                multiline
+                minRows={2}
+                size="small"
+                fullWidth
+                slotProps={{ input: { sx: { fontFamily: "monospace" } } }}
               />
               {payloadError && (
-                <span className="text-red text-[0.7rem]">{payloadError}</span>
+                <Typography variant="caption" color="error">
+                  {payloadError}
+                </Typography>
               )}
-            </div>
-          </div>
-          <div className="flex gap-2 mb-1.5 items-start">
-            <label className={`${labelCls} pt-1`}>Headers</label>
-            <div className="flex-1">
-              <textarea
+            </Box>
+            <Box>
+              <TextField
+                label="Headers"
                 value={headersText}
                 onChange={(e) => setHeadersText(e.target.value)}
                 onBlur={handleHeadersBlur}
                 placeholder='{"Header": "value"} (JSON)'
-                className="w-full min-h-[60px] px-2 py-1 bg-bg-input border border-border rounded text-text-primary text-[0.8rem] font-mono focus:outline-none focus:border-accent resize-y"
+                multiline
+                minRows={2}
+                size="small"
+                fullWidth
+                slotProps={{ input: { sx: { fontFamily: "monospace" } } }}
               />
               {headersError && (
-                <span className="text-red text-[0.7rem]">{headersError}</span>
+                <Typography variant="caption" color="error">
+                  {headersError}
+                </Typography>
               )}
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="flex gap-2 mb-1.5 items-center">
-            <label className={labelCls}>URL</label>
-            <input
-              type="text"
+            </Box>
+          </>
+        ) : (
+          <>
+            <TextField
+              label="URL"
               value={(action as BrowserActionConfig).url}
               onChange={(e) =>
                 onChange({ ...(action as BrowserActionConfig), url: e.target.value })
               }
-              className={inputCls}
+              size="small"
+              fullWidth
             />
-          </div>
-          <div className="flex gap-2 mb-1.5 items-center">
-            <label className={labelCls}>Wait For</label>
-            <select
+            <TextField
+              select
+              label="Wait For"
               value={(action as BrowserActionConfig).wait_for || "networkidle"}
               onChange={(e) =>
                 onChange({
@@ -183,25 +186,22 @@ export default function ActionEditorPanel({ action, onChange, onDone }: Props) {
                   wait_for: e.target.value as "networkidle" | "domcontentloaded" | "load",
                 })
               }
-              className={inputCls}
+              size="small"
+              fullWidth
             >
-              <option value="networkidle">networkidle</option>
-              <option value="domcontentloaded">domcontentloaded</option>
-              <option value="load">load</option>
-            </select>
-          </div>
-        </>
-      )}
+              <MenuItem value="networkidle">networkidle</MenuItem>
+              <MenuItem value="domcontentloaded">domcontentloaded</MenuItem>
+              <MenuItem value="load">load</MenuItem>
+            </TextField>
+          </>
+        )}
 
-      <div className="flex justify-end mt-1.5">
-        <button
-          type="button"
-          onClick={onDone}
-          className="px-3.5 py-1 bg-[#21262d] border border-border rounded-md text-text-primary font-semibold text-[0.82rem] cursor-pointer hover:bg-border"
-        >
-          Done
-        </button>
-      </div>
-    </div>
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <Button variant="outlined" size="small" onClick={onDone}>
+            Done
+          </Button>
+        </Box>
+      </Stack>
+    </Paper>
   );
 }

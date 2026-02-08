@@ -1,3 +1,5 @@
+import Button from "@mui/material/Button";
+import AddIcon from "@mui/icons-material/Add";
 import type { ActionConfig } from "../../types/api";
 import ActionCard from "./ActionCard";
 import ActionEditorPanel from "./ActionEditorPanel";
@@ -42,13 +44,16 @@ export default function ActionsEditor({
           onDelete={() => handleDelete(i)}
         />
       ))}
-      <button
-        type="button"
+      <Button
+        fullWidth
+        variant="outlined"
+        size="small"
+        startIcon={<AddIcon />}
         onClick={handleAdd}
-        className="w-full mt-1 py-1 bg-transparent border border-dashed border-border rounded text-text-secondary text-[0.78rem] text-center cursor-pointer hover:border-accent hover:text-accent"
+        sx={{ mt: 0.5, borderStyle: "dashed" }}
       >
-        + Add Action
-      </button>
+        Add Action
+      </Button>
       {editingIndex >= 0 && editingIndex < actions.length && (
         <ActionEditorPanel
           action={actions[editingIndex]}

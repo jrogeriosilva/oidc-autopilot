@@ -1,3 +1,6 @@
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+
 interface Props {
   message: string;
   isError: boolean;
@@ -5,10 +8,20 @@ interface Props {
 
 export default function StatusBar({ message, isError }: Props) {
   return (
-    <footer
-      className={`shrink-0 px-6 py-1.5 bg-bg-secondary border-t border-border text-xs ${isError ? "text-red" : "text-green"}`}
+    <Box
+      component="footer"
+      sx={{
+        flexShrink: 0,
+        px: 3,
+        py: 0.75,
+        bgcolor: "background.paper",
+        borderTop: 1,
+        borderColor: "divider",
+      }}
     >
-      {message}
-    </footer>
+      <Typography variant="caption" color={isError ? "error" : "success.main"}>
+        {message}
+      </Typography>
+    </Box>
   );
 }

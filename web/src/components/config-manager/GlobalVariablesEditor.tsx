@@ -1,3 +1,5 @@
+import Button from "@mui/material/Button";
+import AddIcon from "@mui/icons-material/Add";
 import VariableRow from "./VariableRow";
 
 interface Props {
@@ -47,13 +49,16 @@ export default function GlobalVariablesEditor({
           onDelete={() => handleDelete(key)}
         />
       ))}
-      <button
-        type="button"
+      <Button
+        fullWidth
+        variant="outlined"
+        size="small"
+        startIcon={<AddIcon />}
         onClick={handleAdd}
-        className="w-full mt-1 py-1 bg-transparent border border-dashed border-border rounded text-text-secondary text-[0.78rem] text-center cursor-pointer hover:border-accent hover:text-accent"
+        sx={{ mt: 0.5, borderStyle: "dashed" }}
       >
-        + Add Variable
-      </button>
+        Add Variable
+      </Button>
     </>
   );
 }

@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Eye, EyeOff, Copy } from "lucide-react";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
+import IconButton from "@mui/material/IconButton";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
 interface Props {
   value: string;
@@ -17,34 +22,39 @@ export default function TokenInput({ value, onChange }: Props) {
   };
 
   return (
-    <label className="flex-1 min-w-[180px] text-xs text-text-secondary">
-      <span className="block mb-0.5">Bearer Token</span>
-      <div className="flex gap-1 items-center">
-        <input
-          type={show ? "text" : "password"}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="your-api-token"
-          required
-          className="flex-1 px-2 py-1.5 bg-bg-input border border-border rounded text-text-primary text-sm focus:outline-none focus:border-accent"
-        />
-        <button
-          type="button"
-          onClick={() => setShow(!show)}
-          title={show ? "Hide token" : "Show token"}
-          className="p-1.5 border border-border rounded text-text-secondary hover:text-text-primary hover:border-text-secondary transition-colors"
-        >
-          {show ? <EyeOff size={14} /> : <Eye size={14} />}
-        </button>
-        <button
-          type="button"
-          onClick={handleCopy}
-          title={copied ? "Copied!" : "Copy token"}
-          className="p-1.5 border border-border rounded text-text-secondary hover:text-text-primary hover:border-text-secondary transition-colors"
-        >
-          <Copy size={14} />
-        </button>
-      </div>
-    </label>
+    <TextField
+      label="Bearer Token"
+      type={show ? "text" : "password"}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="your-api-token"
+      required
+      size="small"
+      sx={{ flex: 1, minWidth: 180 }}
+      slotProps={{
+        input: {
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                onClick={() => setShow(!show)}
+                edge="end"
+                size="small"
+                title={show ? "Hide token" : "Show token"}
+              >
+                {show ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+              </IconButton>
+              <IconButton
+                onClick={handleCopy}
+                edge="end"
+                size="small"
+                title={copied ? "Copied!" : "Copy token"}
+              >
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </InputAdornment>
+          ),
+        },
+      }}
+    />
   );
 }
