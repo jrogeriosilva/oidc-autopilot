@@ -70,11 +70,11 @@ export default function LaunchForm({ isRunning, onLaunched, onError }: Props) {
         className="py-2.5 text-sm font-semibold text-text-primary cursor-pointer select-none flex items-center gap-1.5"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <span className="text-[0.55rem] inline-block transition-transform" style={{ transform: collapsed ? '' : 'rotate(90deg)' }}>&#9654;</span>
+        <span className={`text-[0.55rem] inline-block transition-transform ${collapsed ? '' : 'rotate-90'}`}>&#9654;</span>
         Plan Configuration
       </div>
       <div
-        className={`overflow-hidden transition-[max-height] duration-300 ${collapsed ? "max-h-0" : "max-h-[500px]"}`}
+        className={`overflow-hidden transition-[max-height] duration-300 ${collapsed ? "max-h-0" : "max-h-[1000px]"}`}
       >
         <form onSubmit={handleSubmit} autoComplete="off" className="pb-3">
           <div className="flex gap-3 flex-wrap mb-2">
