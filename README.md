@@ -5,9 +5,12 @@
 [![License](https://badges.ws/badge/License-MIT-yellow)](./LICENSE)
 [![Node.js](https://badges.ws/badge/Node.js-18+-339933)](https://nodejs.org/)
 
-<img width="540" height="196" alt="oidc-autopilot" src="https://github.com/user-attachments/assets/98921412-d18f-4813-968b-58b0a48981ec" />
+![Dashboard](docs/dashboard.png)
 
-**oidc-autopilot** automates [OpenID Connect Conformance Suite](https://www.certification.openid.net) tests using JSON configuration with dynamic actions and variable capture. Designed to streamline certification testing workflows for OpenID Connect implementations.
+![Config Manager](docs/config-manager.png)
+
+
+**oidc-autopilot** automates [OpenID Connect Conformance Suite](https://www.certification.openid.net) tests through JSON-based workflows with dynamic actions and variable capture. It streamlines certification testing for OpenID Connect implementations.
 
 ## Table of Contents
 
@@ -298,10 +301,7 @@ Create a `.env` file in the project root (see `env.example`):
 
 ## GUI Dashboard
 
-In addition to the CLI, oidc-autopilot provides a modern **Web GUI Dashboard** built with React, Vite, and TailwindCSS. The dashboard offers a visual interface for configuring, launching, and monitoring conformance test runs in real time.
-
-<!-- ![Dashboard Screenshot](docs/dashboard-screenshot.png) -->
-> 📸 *Dashboard screenshot placeholder — replace with an actual capture of the running dashboard.*
+In addition to the CLI, oidc-autopilot provides a modern **Web GUI Dashboard** built with React, Vite, and Material UI. The dashboard offers a visual interface for configuring, launching, and monitoring conformance test runs in real time.
 
 ### Starting the Dashboard
 
@@ -388,8 +388,6 @@ graph LR
     Actions --> PW
     Actions --> API
 ```
-
-> 🏗️ *Architecture diagram placeholder — the Mermaid chart above renders on GitHub. Replace or extend as needed.*
 
 ## Development
 
