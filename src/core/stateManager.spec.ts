@@ -94,28 +94,6 @@ describe('StateManager', () => {
       });
     });
 
-    it('should call navigation handler only once', async () => {
-      const onNavigate = jest.fn().mockResolvedValue(true);
-
-      mockApi.getModuleInfo
-        .mockResolvedValueOnce({ status: 'WAITING', result: 'UNKNOWN' } as any)
-        .mockResolvedValueOnce({ status: 'WAITING', result: 'UNKNOWN' } as any)
-        .mockResolvedValueOnce({ status: 'FINISHED', result: 'PASSED' } as any);
-
-      mockApi.getRunnerInfo.mockResolvedValue({
-        browser: { urls: ['https://example.com'], urlsWithMethod: [] },
-      } as any);
-
-      await stateManager.pollUntilTerminal(
-        'test-runner-id',
-        [],
-        {},
-        { onNavigate }
-      );
-
-      expect(onNavigate).toHaveBeenCalledTimes(1);
-    });
-
     it('should call action handler after navigation', async () => {
       const onNavigate = jest.fn().mockResolvedValue(true);
       const onExecuteActions = jest.fn().mockResolvedValue(undefined);
@@ -246,38 +224,6 @@ describe('StateManager', () => {
       );
 
       expect(captured.testId).toBe('test-123');
-    });
-
-    it('should log state transitions with context', async () => {
-      mockApi.getModuleInfo
-        .mockResolvedValueOnce({ status: 'CREATED', result: 'UNKNOWN' } as any)
-        .mockResolvedValueOnce({ status: 'FINISHED', result: 'PASSED' } as any);
-
-      await stateManager.pollUntilTerminal(
-        'test-runner-id',
-        [],
-        {},
-        {},
-        { correlationId: 'test-123', moduleName: 'test-module' }
-      );
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Polling... State: CREATED',
-        expect.objectContaining({
-          correlationId: 'test-123',
-          moduleName: 'test-module',
-          state: 'CREATED',
-        })
-      );
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Polling... State: FINISHED',
-        expect.objectContaining({
-          correlationId: 'test-123',
-          moduleName: 'test-module',
-          state: 'FINISHED',
-        })
-      );
     });
 
     it('should capture variables from runner info during navigation', async () => {

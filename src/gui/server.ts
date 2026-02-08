@@ -7,7 +7,7 @@ import { loadConfig } from "../config/loadConfig";
 import { ConformanceApi } from "../core/conformanceApi";
 import { Runner } from "../core/runner";
 import { CONSTANTS } from "../core/constants";
-import { buildPage } from "./pageBuilder";
+import { planConfigSchema } from "../config/schema";
 import type { ExecutionSummary } from "../core/types";
 
 /** Shape of a single log line stored for late-joining SSE clients. */
@@ -117,10 +117,8 @@ export class OidcAutopilotDashboard {
   // ── Route registration ──────────────────────────────
 
   private registerRoutes(): void {
-    this.expressApp.get("/", (_rq, rs) => {
-      const envDefaults = readEnvDefaults();
-      const configFiles = discoverConfigFiles();
-      rs.type("html").send(buildPage(envDefaults, configFiles));
+    this.expressApp.get("/api/env-defaults", (_rq, rs) => {
+      rs.json(readEnvDefaults());
     });
 
     this.expressApp.get("/api/health", (_rq, rs) => {
@@ -148,6 +146,89 @@ export class OidcAutopilotDashboard {
       rq.on("close", () => this.activeSseConnections.delete(rs));
     });
 
+    // ── Config Manager routes ──
+
+    this.expressApp.get("/api/plan/info/:planName", async (rq, rs) => {
+      const env = readEnvDefaults();
+      if (!env.token) {
+        rs.status(401).json({ error: "CONFORMANCE_TOKEN not set in environment" });
+        return;
+      }
+      try {
+        const api = new ConformanceApi({ baseUrl: env.serverUrl, token: env.token });
+        const info = await api.getPlanInfo(rq.params.planName);
+        rs.json(info);
+      } catch (err) {
+        rs.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    });
+
+    this.expressApp.get("/api/config/:filename(*)", (rq, rs) => {
+      const cwd = process.cwd();
+      const resolved = nodePath.resolve(cwd, rq.params.filename);
+      if (!resolved.startsWith(cwd)) {
+        rs.status(403).json({ error: "Path traversal not allowed" });
+        return;
+      }
+      if (!resolved.endsWith(".config.json")) {
+        rs.status(400).json({ error: "File must end with .config.json" });
+        return;
+      }
+      try {
+        const raw = fs.readFileSync(resolved, "utf-8");
+        rs.json(JSON.parse(raw));
+      } catch (err) {
+        rs.status(404).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    });
+
+    this.expressApp.put("/api/config/:filename(*)", (rq, rs) => {
+      const cwd = process.cwd();
+      const resolved = nodePath.resolve(cwd, rq.params.filename);
+      if (!resolved.startsWith(cwd)) {
+        rs.status(403).json({ error: "Path traversal not allowed" });
+        return;
+      }
+      if (!resolved.endsWith(".config.json")) {
+        rs.status(400).json({ error: "File must end with .config.json" });
+        return;
+      }
+      try {
+        const validated = planConfigSchema.parse(rq.body);
+        const dir = nodePath.dirname(resolved);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(resolved, JSON.stringify(validated, null, 2) + "\n", "utf-8");
+        rs.json({ saved: true, filename: rq.params.filename });
+      } catch (err: unknown) {
+        if (err && typeof err === "object" && "issues" in err) {
+          rs.status(400).json({ error: "Validation failed", details: (err as any).issues });
+          return;
+        }
+        rs.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    });
+
+    this.expressApp.delete("/api/config/:filename(*)", (rq, rs) => {
+      const cwd = process.cwd();
+      const resolved = nodePath.resolve(cwd, rq.params.filename);
+      if (!resolved.startsWith(cwd)) {
+        rs.status(403).json({ error: "Path traversal not allowed" });
+        return;
+      }
+      if (!resolved.endsWith(".config.json")) {
+        rs.status(400).json({ error: "File must end with .config.json" });
+        return;
+      }
+      try {
+        fs.unlinkSync(resolved);
+        rs.json({ deleted: true });
+      } catch (err) {
+        rs.status(404).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    });
+
+    // ── Execution routes ──
+
     this.expressApp.post("/api/launch", (rq, rs) => {
       this.handleLaunch(rq, rs);
     });
@@ -155,6 +236,17 @@ export class OidcAutopilotDashboard {
     this.expressApp.post("/api/stop", (_rq, rs) => {
       this.handleStop(rs);
     });
+
+    // ── SPA serving (React frontend) ──
+    const clientDir = nodePath.resolve(__dirname, "../../dist/client");
+    const clientIndex = nodePath.join(clientDir, "index.html");
+    if (fs.existsSync(clientIndex)) {
+      this.expressApp.use(express.static(clientDir));
+      // Catch-all: serve index.html for client-side routing
+      this.expressApp.get("*", (_rq, rs) => {
+        rs.sendFile(clientIndex);
+      });
+    }
   }
 
   // ── SSE broadcasting ────────────────────────────────
