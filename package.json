@@ -9,9 +9,14 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:web": "cd web && npm run build",
+    "build:all": "npm run build && npm run build:web",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "gui": "ts-node src/guiEntry.ts",
+    "dev:server": "ts-node src/guiEntry.ts --port=3001",
+    "dev:web": "cd web && npx vite",
+    "dev:gui": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "gui": "npm run build:web && ts-node src/guiEntry.ts",
     "test": "jest"
   },
   "engines": {
@@ -28,6 +33,7 @@
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.12.12",
+    "concurrently": "^9.1.2",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",

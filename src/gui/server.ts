@@ -7,8 +7,6 @@ import { loadConfig } from "../config/loadConfig";
 import { ConformanceApi } from "../core/conformanceApi";
 import { Runner } from "../core/runner";
 import { CONSTANTS } from "../core/constants";
-import { buildPage } from "./pageBuilder";
-import { buildConfigManagerPage } from "./configManagerPageBuilder";
 import { planConfigSchema } from "../config/schema";
 import type { ExecutionSummary } from "../core/types";
 
@@ -119,10 +117,8 @@ export class OidcAutopilotDashboard {
   // ── Route registration ──────────────────────────────
 
   private registerRoutes(): void {
-    this.expressApp.get("/", (_rq, rs) => {
-      const envDefaults = readEnvDefaults();
-      const configFiles = discoverConfigFiles();
-      rs.type("html").send(buildPage(envDefaults, configFiles));
+    this.expressApp.get("/api/env-defaults", (_rq, rs) => {
+      rs.json(readEnvDefaults());
     });
 
     this.expressApp.get("/api/health", (_rq, rs) => {
@@ -151,10 +147,6 @@ export class OidcAutopilotDashboard {
     });
 
     // ── Config Manager routes ──
-
-    this.expressApp.get("/config-manager", (_rq, rs) => {
-      rs.type("html").send(buildConfigManagerPage());
-    });
 
     this.expressApp.get("/api/plan/info/:planName", async (rq, rs) => {
       const env = readEnvDefaults();
@@ -244,6 +236,17 @@ export class OidcAutopilotDashboard {
     this.expressApp.post("/api/stop", (_rq, rs) => {
       this.handleStop(rs);
     });
+
+    // ── SPA serving (React frontend) ──
+    const clientDir = nodePath.resolve(__dirname, "../../dist/client");
+    const clientIndex = nodePath.join(clientDir, "index.html");
+    if (fs.existsSync(clientIndex)) {
+      this.expressApp.use(express.static(clientDir));
+      // Catch-all: serve index.html for client-side routing
+      this.expressApp.get("*", (_rq, rs) => {
+        rs.sendFile(clientIndex);
+      });
+    }
   }
 
   // ── SSE broadcasting ────────────────────────────────

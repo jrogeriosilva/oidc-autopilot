@@ -1,38 +1,39 @@
 # oidc-autopilot: AI agent notes
+
 ## Project Overview
 
-**oidc-autopilot** is a CLI tool that automates OpenID Connect Conformance Suite tests. It orchestrates test execution by registering test modules, polling their status, handling browser navigation via Playwright, and executing custom HTTP actions when tests enter WAITING state.
+**oidc-autopilot** is a CLI tool that automates OpenID Connect Conformance Suite tests. It orchestrates test execution by registering test modules, polling their status, handling browser navigation via Playwright, and executing custom HTTP actions when tests enter WAITING state. It also provides a web-based GUI dashboard as an alternative interface.
+
+## Development Rules
+- Use the playwright MCP if need test the front end.
 
 ## Common Commands
 
-### Setup
 ```bash
+# Setup
 npm install
 npx playwright install --with-deps
-```
 
-### Development
-```bash
-# Development mode with hot reload
-npm run dev -- --config ./config.json --plan-id <PLAN_ID> --token <TOKEN>
-
-# Build for production
+# Build
 npm run build
 
-# Run built application
-npm start -- --config ./config.json --plan-id <PLAN_ID>
-```
+# Run CLI
+npm run dev -- --config ./my.config.json --plan-id <PLAN_ID> --token <TOKEN>
+npm start -- --config ./my.config.json --plan-id <PLAN_ID>
 
-### Testing
-```bash
-# Run all tests
-npm test
+# Run GUI dashboard (builds React SPA + Express server on port 3000)
+npm run gui                        # production: build + serve
+npm run gui -- --port=8080         # custom port
+npm run dev:gui                    # dev: Vite (5173) + Express (3001) with hot reload
 
-# Run specific test file
-npm test -- src/core/runner.spec.ts
+# Build frontend only
+npm run build:web                  # builds to dist/client/
+npm run build:all                  # backend + frontend
 
-# Run tests in watch mode
-npm test -- --watch
+# Tests
+npm test                           # all tests
+npm test -- src/core/runner.spec.ts  # single file
+npm test -- --watch                # watch mode
 ```
 
 ## Architecture
@@ -45,35 +46,6 @@ npm test -- --watch
 
 **IMPORTANT CONSTRAINT**: Modules MUST execute sequentially. The OpenID Conformance Suite does NOT support parallel test execution. Each test module must complete before the next one starts.
 
-### Architecture Components
-
-#### StateManager (src/core/stateManager.ts)
-Encapsulates state polling logic for test modules:
-- Polls module status until terminal state (FINISHED/INTERRUPTED)
-- Handles WAITING state by triggering navigation and action execution
-- Enforces timeout constraints
-- Captures variables from API responses throughout polling
-- Provides structured callbacks (`onNavigate`, `onExecuteActions`) for state transitions
-
-**Note**: The legacy `pollRunnerStatus()` function in `src/core/runnerHelpers.ts` is deprecated and will be removed in a future version. Use `StateManager` for all new code.
-
-#### Custom Error Classes (src/core/errors.ts)
-Provides contextual error information for better debugging:
-- `ModuleExecutionError` - Module execution failures with state context
-- `ActionExecutionError` - Action execution failures with action name/type
-- `StateTimeoutError` - State polling timeouts with last known state
-- `BrowserNavigationError` - Browser navigation failures with URL
-
-All errors preserve cause chains for full error traceability.
-
-#### Enhanced Logging (src/core/logger.ts)
-Supports structured logging with correlation IDs:
-- `LogContext` interface with `correlationId`, `moduleName`, `actionName`, `state` fields
-- Correlation IDs enable tracing execution flow across modules and actions
-- Debug logging available via `DEBUG` environment variable
-- Format: `[correlationId:moduleName:state:WAITING:action:login] message`
-- Grep-able by module, action, or state for easier debugging
-
 ### Test State Machine
 ```
 CREATED → CONFIGURED → RUNNING → WAITING → FINISHED/INTERRUPTED
@@ -81,131 +53,99 @@ CREATED → CONFIGURED → RUNNING → WAITING → FINISHED/INTERRUPTED
                     Browser Navigation (once) + Actions (once)
 ```
 
-### Key State Handling (WAITING)
 When a test enters WAITING state:
 1. **Navigation** (once): Uses `runnerInfo.browser.urls[0]` or first GET from `urlsWithMethod`, navigates via Playwright
 2. **Actions** (once): Executes configured actions (API or browser types) sequentially after navigation completes
 
+### Key Components
+
+| Component | File | Role |
+|-----------|------|------|
+| Runner | `src/core/runner.ts` | Main orchestrator, sequential module execution |
+| StateManager | `src/core/stateManager.ts` | Polls module status, triggers navigation/actions on WAITING |
+| ConformanceApi | `src/core/conformanceApi.ts` | All conformance API calls (register, start, poll, logs) |
+| ActionExecutor | `src/core/actions.ts` | Handles API (HTTP) and Browser (Playwright) actions via discriminated union |
+| HttpClient | `src/core/httpClient.ts` | HTTP requests with automatic variable capture |
+| BrowserSession | `src/core/browserSession.ts` | Playwright browser lifecycle, shared per module |
+| Capture | `src/core/capture.ts` | `captureFromObject()` / `captureFromUrl()` extract variables |
+| Template | `src/core/template.ts` | `applyTemplate()` replaces `{{var}}` placeholders |
+| Logger | `src/core/logger.ts` | Structured logging with correlation IDs, DEBUG mode |
+| Errors | `src/core/errors.ts` | `ModuleExecutionError`, `ActionExecutionError`, `StateTimeoutError`, `BrowserNavigationError` |
+| Types | `src/core/types.ts` | `TestState`, `TestResult`, `ModuleResult`, `ExecutionSummary`, `RunnerOptions` |
+
+**Note**: The legacy `pollRunnerStatus()` in `src/core/runnerHelpers.ts` is deprecated. Use `StateManager` for all new code.
+
+### GUI Dashboard (`npm run gui`)
+- **Backend**: `src/guiEntry.ts` → `OidcAutopilotDashboard` in `src/gui/server.ts`
+- Express server with SSE for real-time log streaming and module status updates
+- Serves the React SPA from `dist/client/` (built by Vite)
+- API Routes: `GET /api/health`, `GET /api/feed` (SSE), `POST /api/launch`, `POST /api/stop`, `GET /api/configs`, `GET /api/env-defaults`, `GET/PUT/DELETE /api/config/:filename`, `GET /api/plan/info/:planName`
+- Stop handler cancels runners via `DELETE /api/runner/{id}`
+
+### React Frontend (`web/`)
+- **Stack**: React 19, TypeScript, Vite, TailwindCSS v4, lucide-react, react-router-dom
+- **Entry**: `web/index.html` → `web/src/main.tsx` → `<App />` with BrowserRouter
+- **Pages**: `DashboardPage` (/) and `ConfigManagerPage` (/config-manager)
+- **State**: `useReducer` + custom hooks (`useDashboard`, `useConfigManager`, `useSSE`, `useDragReorder`)
+- **API client**: `web/src/api/client.ts` (dashboard) and `web/src/api/configApi.ts` (config manager)
+- **Types**: `web/src/types/api.ts` mirrors backend types (not imported cross-project)
+- **Dev workflow**: `npm run dev:gui` starts Vite dev server (port 5173) proxying `/api/*` to Express (port 3001)
+
 ### Variable Capture & Templating
-- **Fixed Variables**: Can be defined at global (config) or module level for constant values
 - **Variable Precedence**: captured > module variables > global variables
-- **Capture**: `captureFromObject()` and `captureFromUrl()` (src/core/capture.ts) extract variables from JSON responses, URL params, and nested structures
-- **Storage**: All captured vars are stored in a shared `captured` map passed through the execution chain
-- **Templating**: `applyTemplate()` (src/core/template.ts) replaces `{{var}}` placeholders in action endpoints, payloads, headers, and URLs
-- **HTTP Integration**: `HttpClient.requestJson()` (src/core/httpClient.ts) automatically captures from request URLs, response bodies, and text responses
+- **Capture Sources**: JSON response bodies, URL query parameters, nested structures
+- **Templating**: `{{var}}` placeholders in action endpoints, payloads, headers, and URLs
+- **HTTP Integration**: `HttpClient.requestJson()` automatically captures from request URLs, response bodies, and text responses
 
 ### Typed Actions System
-Actions are typed as either API (HTTP) or Browser (Playwright) operations:
-- **API Actions**: Execute HTTP requests and capture response variables
-  - Fields: `type: "api"`, `endpoint`, `method`, `payload`, `headers`
-  - Executed via `HttpClient` with automatic variable capture
-- **Browser Actions**: Execute Playwright operations
-  - Fields: `type: "browser"`, `operation`, `url`, `wait_for`
-  - Currently supports `navigate` operation with different wait strategies
-  - Browser session is shared across all actions within a module (preserves cookies/state)
-- **Action Executor**: `src/core/actions.ts` handles both types via discriminated union
-- **Variable Merging**: Actions receive merged variables (global + module + captured) following precedence rules
-
-### Conformance API Integration
-All conformance API calls are centralized in `src/core/conformanceApi.ts`:
-- `registerRunner(planId, moduleName)` - POST /api/runner
-- `getModuleInfo(runnerId)` - GET /api/info/{id}
-- `getRunnerInfo(runnerId)` - GET /api/runner/{id}
-- `getModuleLogs(runnerId)` - GET /api/log/{id}
-- `startModule(runnerId)` - POST /api/runner/{id}
-
-All use Bearer token authentication and accept `CaptureContext` for variable extraction.
+- **API Actions**: `type: "api"` — HTTP requests via `HttpClient` with automatic variable capture. Fields: `endpoint`, `method`, `payload`, `headers`
+- **Browser Actions**: `type: "browser"` — Playwright operations. Fields: `operation` (currently `navigate`), `url`, `wait_for` (`networkidle`/`domcontentloaded`/`load`)
+- Browser session is shared across all actions within a module (preserves cookies/state)
 
 ## Important Conventions
 
 ### Configuration Files
 - **Must** end with `.config.json` suffix (enforced in loadConfig.ts)
-- Schema validation happens via `planConfigSchema` in src/config/schema.ts
-- Add new config fields to schema first, then implement
+- Schema validation via `planConfigSchema` in `src/config/schema.ts`
+- Add new config fields to the Zod schema first — TypeScript types are auto-inferred
 
 ### Error Handling
-- `cli.ts` is the error-to-exit boundary
-- All other modules throw custom error classes from `src/core/errors.ts`
-- Custom errors provide contextual information (module, action, state)
-- Errors preserve cause chains for full traceability
-- Errors are caught in CLI and logged with context before exit
+- `cli.ts` is the error-to-exit boundary; all other modules throw custom errors from `src/core/errors.ts`
+- All errors preserve cause chains for full traceability
 
 ### Logging
-- Use `createLogger()` from src/core/logger.ts
-- Supports structured logging with `LogContext` parameter
-- **Regular logs** show only module name and action (when relevant): `[module-name] message` or `[module-name:action-name] message`
-- **Debug logs** (via `DEBUG` env var) show full context including correlation ID and state: `[timestamp:module:state:action] message`
-- Correlation IDs are used internally for tracing but not shown in regular logs to reduce verbosity
-- Keep logs plain English and avoid technical jargon in user-facing messages
-
-#### Log Format Examples
-```bash
-# Regular logs (concise)
-[module-name] Registering...
-[module-name] Registering... OK (ID: ABC123)
-[module-name:action-name] Executing action 'action-name'...
-[module-name:action-name] Action 'action-name' completed.
-
-# Debug logs (detailed)
-DEBUG=true npm start
-[DEBUG]: [1234567890:module-name:WAITING] Polling... State: WAITING
-[DEBUG]: [1234567890:module-name:WAITING:action-name] Executing action
-```
-
-#### Log Filtering Examples
-```bash
-# All logs for specific module
-npm start | grep "module-name"
-
-# All action executions
-npm start | grep ":"  # Lines with action names
-
-# Debug logs with full context
-DEBUG=true npm start
-```
+- Use `createLogger()` from `src/core/logger.ts`
+- Regular logs: `[module-name] message` or `[module-name:action-name] message`
+- Debug logs (`DEBUG=true`): `[timestamp:module:state:action] message` with full correlation context
 
 ### Testing
-- Tests use Jest with ts-jest preset
-- Test files: `**/*.spec.ts` in src/ directory
-- Use `isolateModule()` from src/testUtils/isolateModule.ts for module isolation when needed
+- Jest with ts-jest preset, config in `jest.config.ts`
+- Test files: `**/*.spec.ts` colocated with source in `src/`
+- Use `isolateModule()` from `src/testUtils/isolateModule.ts` for module isolation
 
 ### Environment Variables
-Critical env vars (set in .env):
-- `CONFORMANCE_TOKEN` - Bearer token for API auth (required)
-- `CONFORMANCE_SERVER` - Base URL (optional, defaults to https://www.certification.openid.net)
+Set in `.env` (see `env.example`):
+- `CONFORMANCE_TOKEN` — Bearer token for API auth (required)
+- `CONFORMANCE_SERVER` — Base URL (optional, defaults to `https://www.certification.openid.net`)
+- `CONFORMANCE_PLAN_ID` — Default plan ID (optional, overridden by `--plan-id`)
 
 ## Modifying the Codebase
 
 ### Adding New Configuration Fields
-1. Update schema in `src/config/schema.ts`
-2. Add TypeScript types (auto-generated via Zod inference)
-3. Handle in runner or action executor
+1. Update Zod schema in `src/config/schema.ts`
+2. Types are auto-inferred — handle the new field in runner or action executor
 
 ### Adding Conformance API Endpoints
-1. Add method to `ConformanceApi` class in src/core/conformanceApi.ts
+1. Add method to `ConformanceApi` class in `src/core/conformanceApi.ts`
 2. Use `HttpClient` with `CaptureContext` to maintain variable capture
-3. Include proper error handling and logging
 
 ### Extending Action Execution
 1. Update action schemas in `src/config/schema.ts` (discriminated union)
-2. Modify `ActionExecutor` in src/core/actions.ts to handle new action types
+2. Modify `ActionExecutor` in `src/core/actions.ts` to handle new action types
 3. Ensure template interpolation via `applyTemplate()`
-4. Capture variables from responses using appropriate mechanisms
 
 ### Browser Automation
-- Browser session management via `BrowserSession` class (src/core/browserSession.ts)
-- Each module gets its own browser session, shared across all actions in that module
-- Session preserves cookies, localStorage, and other browser state
-- Exported from src/core/playwrightRunner.ts
-- Uses headless mode by default (override with --no-headless)
+- `BrowserSession` (src/core/browserSession.ts) manages Playwright lifecycle per module
+- Headless by default (override with `--no-headless`)
+- Wait strategies: `networkidle`, `domcontentloaded`, `load`
 - Always capture final URL and query params after navigation
-- Supports different wait strategies: networkidle, domcontentloaded, load
-
-## Related Documentation
-
-See README.md for:
-- Detailed configuration examples
-- Variable capture mechanics
-- Action configuration reference
-- CLI usage and options
-- Execution flow diagrams
