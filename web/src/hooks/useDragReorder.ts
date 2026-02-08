@@ -27,11 +27,11 @@ export function useDragReorder(
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(index));
     const el = e.currentTarget as HTMLElement;
-    requestAnimationFrame(() => el.classList.add("opacity-40"));
+    requestAnimationFrame(() => el.classList.add("drag-opacity-reduced"));
   }, []);
 
   const onDragEnd = useCallback((e: React.DragEvent) => {
-    (e.currentTarget as HTMLElement).classList.remove("opacity-40");
+    (e.currentTarget as HTMLElement).classList.remove("drag-opacity-reduced");
     dragIdx.current = -1;
     clearIndicators((e.currentTarget as HTMLElement).parentElement);
   }, [clearIndicators]);

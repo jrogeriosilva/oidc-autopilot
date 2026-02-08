@@ -1,3 +1,10 @@
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import IconButton from "@mui/material/IconButton";
+import Button from "@mui/material/Button";
+import CloseIcon from "@mui/icons-material/Close";
+import AddIcon from "@mui/icons-material/Add";
+
 interface Props {
   vars: string[];
   onChange: (vars: string[]) => void;
@@ -21,30 +28,29 @@ export default function CaptureVariablesEditor({ vars, onChange }: Props) {
   return (
     <>
       {vars.map((v, i) => (
-        <div key={i} className="flex gap-1.5 mb-1 items-center">
-          <input
-            type="text"
+        <Stack key={i} direction="row" spacing={0.75} sx={{ mb: 0.5, alignItems: "center" }}>
+          <TextField
             value={v}
             placeholder="variable name"
             onChange={(e) => handleChange(i, e.target.value)}
-            className="flex-1 px-2 py-1 bg-bg-input border border-border rounded text-text-primary text-[0.8rem] focus:outline-none focus:border-accent"
+            size="small"
+            fullWidth
           />
-          <button
-            type="button"
-            onClick={() => handleDelete(i)}
-            className="bg-transparent border border-border rounded text-red cursor-pointer text-xs px-2 py-0.5 leading-none hover:text-[#ff7b72] hover:border-red"
-          >
-            x
-          </button>
-        </div>
+          <IconButton size="small" color="error" onClick={() => handleDelete(i)}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Stack>
       ))}
-      <button
-        type="button"
+      <Button
+        fullWidth
+        variant="outlined"
+        size="small"
+        startIcon={<AddIcon />}
         onClick={handleAdd}
-        className="w-full mt-1 py-1 bg-transparent border border-dashed border-border rounded text-text-secondary text-[0.78rem] text-center cursor-pointer hover:border-accent hover:text-accent"
+        sx={{ mt: 0.5, borderStyle: "dashed" }}
       >
-        + Add Capture Variable
-      </button>
+        Add Capture Variable
+      </Button>
     </>
   );
 }

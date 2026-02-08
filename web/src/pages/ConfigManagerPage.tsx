@@ -1,3 +1,4 @@
+import Box from "@mui/material/Box";
 import { useConfigManager } from "../hooks/useConfigManager";
 import { fetchConfigFile, saveConfigFile, deleteConfigFile, fetchPlanInfo } from "../api/configApi";
 import { fetchConfigs } from "../api/client";
@@ -155,9 +156,9 @@ export default function ConfigManagerPage() {
         onFilenameChange={cm.setFilename}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Left panel */}
-        <div className="w-[42%] overflow-y-auto p-4 border-r border-border">
+        <Box sx={{ width: "42%", overflowY: "auto", p: 2, borderRight: 1, borderColor: "divider" }}>
           <CollapsibleSection title="Global Variables">
             <GlobalVariablesEditor
               variables={state.config.variables}
@@ -181,10 +182,10 @@ export default function ConfigManagerPage() {
               onUpdateAction={cm.updateAction}
             />
           </CollapsibleSection>
-        </div>
+        </Box>
 
         {/* Right panel */}
-        <div className="w-[58%] overflow-y-auto p-4">
+        <Box sx={{ width: "58%", overflowY: "auto", p: 2 }}>
           <CollapsibleSection title="Available Modules">
             <AvailableModulesPanel
               availableModules={state.availableModules}
@@ -215,8 +216,8 @@ export default function ConfigManagerPage() {
               />
             </CollapsibleSection>
           )}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       <StatusBar
         message={state.statusMessage}

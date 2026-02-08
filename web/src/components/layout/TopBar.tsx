@@ -1,32 +1,42 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
 
 export default function TopBar() {
   const location = useLocation();
   const isDashboard = location.pathname === "/";
 
   return (
-    <header className="flex items-center gap-4 px-6 py-2.5 bg-bg-secondary border-b border-border shrink-0">
-      <h1 className="text-lg font-semibold text-accent">OIDC Autopilot</h1>
-      {isDashboard ? (
-        <Link
-          to="/config-manager"
-          className="text-xs text-text-secondary border border-border rounded-md px-2.5 py-1 hover:text-accent hover:border-accent transition-colors"
-        >
-          Config Manager
-        </Link>
-      ) : (
-        <Link
-          to="/"
-          className="text-xs text-text-secondary border border-border rounded-md px-2.5 py-1 hover:text-accent hover:border-accent transition-colors"
-        >
-          Dashboard
-        </Link>
-      )}
-      {!isDashboard && (
-        <span className="text-sm font-semibold text-text-primary">
-          Config Manager
-        </span>
-      )}
-    </header>
+    <AppBar position="static" color="default" elevation={1}>
+      <Toolbar variant="dense" sx={{ gap: 2 }}>
+        <Typography variant="subtitle1" fontWeight="bold" color="primary">
+          OIDC Autopilot
+        </Typography>
+        {isDashboard ? (
+          <Button
+            component={RouterLink}
+            to="/config-manager"
+            size="small"
+            variant="outlined"
+          >
+            Config Manager
+          </Button>
+        ) : (
+          <>
+            <Button
+              component={RouterLink}
+              to="/"
+              size="small"
+              variant="outlined"
+            >
+              Dashboard
+            </Button>
+            <Typography variant="subtitle2">Config Manager</Typography>
+          </>
+        )}
+      </Toolbar>
+    </AppBar>
   );
 }

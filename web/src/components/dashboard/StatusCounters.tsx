@@ -1,3 +1,5 @@
+import Stack from "@mui/material/Stack";
+import Chip from "@mui/material/Chip";
 import type { ExecutionSummary } from "../../types/api";
 
 interface Props {
@@ -10,26 +12,16 @@ export default function StatusCounters({ outcome }: Props) {
   const other = outcome.skipped + outcome.interrupted;
 
   return (
-    <div className="flex gap-2 ml-auto items-center">
-      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-border text-text-primary">
-        {outcome.passed}/{outcome.total}
-      </span>
-      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-green-bg text-green">
-        Passed: {outcome.passed}
-      </span>
-      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-red-bg text-red">
-        Failed: {outcome.failed}
-      </span>
+    <Stack direction="row" spacing={1} sx={{ ml: "auto", alignItems: "center" }}>
+      <Chip label={`${outcome.passed}/${outcome.total}`} size="small" />
+      <Chip label={`Passed: ${outcome.passed}`} size="small" color="success" />
+      <Chip label={`Failed: ${outcome.failed}`} size="small" color="error" />
       {outcome.warning > 0 && (
-        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-yellow-bg text-yellow">
-          Warn: {outcome.warning}
-        </span>
+        <Chip label={`Warn: ${outcome.warning}`} size="small" color="warning" />
       )}
       {other > 0 && (
-        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-border text-text-primary">
-          Other: {other}
-        </span>
+        <Chip label={`Other: ${other}`} size="small" />
       )}
-    </div>
+    </Stack>
   );
 }

@@ -1,11 +1,12 @@
 import { Outlet } from "react-router-dom";
+import Box from "@mui/material/Box";
 import TopBar from "./TopBar";
 
 export default function AppLayout() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <TopBar />
       <Outlet />
-    </div>
+    </Box>
   );
 }

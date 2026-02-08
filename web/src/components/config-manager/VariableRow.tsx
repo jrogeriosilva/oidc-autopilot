@@ -1,3 +1,8 @@
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import IconButton from "@mui/material/IconButton";
+import DeleteIcon from "@mui/icons-material/Delete";
+
 interface Props {
   keyName: string;
   value: string;
@@ -14,28 +19,24 @@ export default function VariableRow({
   onDelete,
 }: Props) {
   return (
-    <div className="flex gap-1.5 mb-1 items-center">
-      <input
-        type="text"
+    <Stack direction="row" spacing={0.75} sx={{ mb: 0.5, alignItems: "center" }}>
+      <TextField
         value={keyName}
         placeholder="key"
         onChange={(e) => onKeyChange(e.target.value)}
-        className="flex-1 px-2 py-1 bg-bg-input border border-border rounded text-text-primary text-[0.8rem] focus:outline-none focus:border-accent"
+        size="small"
+        sx={{ flex: 1 }}
       />
-      <input
-        type="text"
+      <TextField
         value={value}
         placeholder="value"
         onChange={(e) => onValueChange(e.target.value)}
-        className="flex-1 px-2 py-1 bg-bg-input border border-border rounded text-text-primary text-[0.8rem] focus:outline-none focus:border-accent"
+        size="small"
+        sx={{ flex: 1 }}
       />
-      <button
-        type="button"
-        onClick={onDelete}
-        className="bg-transparent border border-border rounded text-red cursor-pointer text-xs px-2 py-0.5 leading-none hover:text-[#ff7b72] hover:border-red"
-      >
-        x
-      </button>
-    </div>
+      <IconButton size="small" color="error" onClick={onDelete}>
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    </Stack>
   );
 }

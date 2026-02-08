@@ -1,12 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronUp, Copy, Trash2, Maximize2, X } from "lucide-react";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import IconButton from "@mui/material/IconButton";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteIcon from "@mui/icons-material/Delete";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import CloseIcon from "@mui/icons-material/Close";
 import type { LogLine } from "../../types/api";
 
 const sevColors: Record<string, string> = {
-  info: "text-accent",
-  error: "text-red",
-  debug: "text-text-dim",
-  log: "text-text-primary",
+  info: "info.main",
+  error: "error.main",
+  debug: "text.disabled",
+  log: "text.primary",
 };
 
 interface Props {
@@ -36,67 +45,104 @@ export default function LogDrawer({ logs, onClear }: Props) {
     if (!fullscreen) setCollapsed(false);
   };
 
-  const wrapperCls = fullscreen
-    ? "fixed inset-0 z-[1000] flex flex-col bg-bg-secondary"
-    : "shrink-0 bg-bg-secondary border-t border-border flex flex-col";
-
   return (
-    <div className={wrapperCls}>
+    <Box
+      sx={
+        fullscreen
+          ? { position: "fixed", inset: 0, zIndex: 1300, display: "flex", flexDirection: "column", bgcolor: "background.paper" }
+          : { flexShrink: 0, bgcolor: "background.paper", borderTop: 1, borderColor: "divider", display: "flex", flexDirection: "column" }
+      }
+    >
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 py-2 cursor-pointer select-none"
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 2,
+          py: 1,
+          cursor: fullscreen ? "default" : "pointer",
+          userSelect: "none",
+        }}
         onClick={() => !fullscreen && setCollapsed(!collapsed)}
       >
-        <span className="flex items-center gap-2 text-sm font-semibold text-text-primary">
-          <ChevronUp
-            size={13}
-            className={`transition-transform ${collapsed ? "rotate-180" : ""}`}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <KeyboardArrowUpIcon
+            fontSize="small"
+            sx={{
+              transition: "transform 0.2s",
+              transform: collapsed ? "rotate(180deg)" : "none",
+            }}
           />
-          Logs
-          <span className="text-[0.7rem] bg-border text-text-secondary px-2 py-px rounded-lg font-medium">
-            {logs.length}
-          </span>
-        </span>
-        <div className="flex gap-1.5 items-center" onClick={(e) => e.stopPropagation()}>
-          <button
+          <Typography variant="subtitle2">Logs</Typography>
+          <Chip label={logs.length} size="small" />
+        </Box>
+        <Box
+          sx={{ display: "flex", gap: 0.5, alignItems: "center" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            size="small"
+            startIcon={<ContentCopyIcon fontSize="small" />}
             onClick={handleCopy}
-            className="text-[0.72rem] px-2 py-0.5 border border-border rounded text-text-secondary hover:text-text-primary hover:border-text-secondary"
           >
-            {copied ? "Copied!" : <><Copy size={11} className="inline mr-1" />Copy All</>}
-          </button>
-          <button
+            {copied ? "Copied!" : "Copy All"}
+          </Button>
+          <Button
+            size="small"
+            startIcon={<DeleteIcon fontSize="small" />}
             onClick={onClear}
-            className="text-[0.72rem] px-2 py-0.5 border border-border rounded text-text-secondary hover:text-text-primary hover:border-text-secondary"
           >
-            <Trash2 size={11} className="inline mr-1" />Clear
-          </button>
-          <button
-            onClick={toggleFullscreen}
-            className="text-[0.72rem] px-2 py-0.5 border border-border rounded text-text-secondary hover:text-text-primary hover:border-text-secondary"
-          >
-            {fullscreen ? <X size={13} /> : <Maximize2 size={13} />}
-          </button>
-        </div>
-      </div>
+            Clear
+          </Button>
+          <IconButton size="small" onClick={toggleFullscreen}>
+            {fullscreen ? <CloseIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
+          </IconButton>
+        </Box>
+      </Box>
 
       {/* Body */}
-      <div
-        className={`overflow-hidden transition-[max-height] duration-300 ${collapsed ? "max-h-0" : fullscreen ? "flex-1" : "max-h-[220px]"}`}
+      <Box
+        sx={{
+          overflow: "hidden",
+          transition: "max-height 0.3s",
+          ...(collapsed
+            ? { maxHeight: 0 }
+            : fullscreen
+              ? { flex: 1 }
+              : { maxHeight: 220 }),
+        }}
       >
-        <div
-          className={`overflow-y-auto font-mono text-[0.78rem] leading-relaxed px-3 py-1.5 bg-bg-input border-t border-[#21262d] ${fullscreen ? "h-[calc(100vh-40px)]" : "h-[220px]"}`}
+        <Box
+          sx={{
+            overflowY: "auto",
+            fontFamily: "monospace",
+            fontSize: "0.78rem",
+            lineHeight: 1.6,
+            px: 1.5,
+            py: 0.75,
+            bgcolor: "background.default",
+            borderTop: 1,
+            borderColor: "divider",
+            height: fullscreen ? "calc(100vh - 48px)" : 220,
+          }}
         >
           {logs.map((line, i) => (
-            <div
+            <Box
               key={i}
-              className={`whitespace-pre-wrap break-all ${sevColors[line.severity] || "text-text-primary"}`}
+              component="div"
+              sx={{
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-all",
+                color: sevColors[line.severity] || "text.primary",
+              }}
             >
               {line.message}
-            </div>
+            </Box>
           ))}
           <div ref={logEndRef} />
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Box>
   );
 }

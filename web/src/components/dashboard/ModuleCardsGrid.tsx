@@ -1,3 +1,5 @@
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 import type { ModuleCard as ModuleCardType } from "../../types/api";
 import ModuleCard from "./ModuleCard";
 
@@ -8,17 +10,33 @@ interface Props {
 export default function ModuleCardsGrid({ cards }: Props) {
   if (cards.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[120px] text-text-muted text-sm">
-        Configure and launch a plan to see test modules here.
-      </div>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 120,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          Configure and launch a plan to see test modules here.
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 content-start">
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+        gap: 1.5,
+        alignContent: "start",
+      }}
+    >
       {cards.map((card) => (
         <ModuleCard key={card.name} card={card} />
       ))}
-    </div>
+    </Box>
   );
 }

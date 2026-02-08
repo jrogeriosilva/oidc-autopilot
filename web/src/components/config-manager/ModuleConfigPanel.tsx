@@ -1,7 +1,12 @@
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Checkbox from "@mui/material/Checkbox";
+import Button from "@mui/material/Button";
+import AddIcon from "@mui/icons-material/Add";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import type { ActionConfig, ModuleConfig } from "../../types/api";
 import VariableRow from "./VariableRow";
 import { useDragReorder } from "../../hooks/useDragReorder";
-import { GripVertical } from "lucide-react";
 
 interface Props {
   module: ModuleConfig;
@@ -16,7 +21,6 @@ export default function ModuleConfigPanel({
 }: Props) {
   const assignedActions = module.actions || [];
 
-  // Separate checked (assigned, in order) from unchecked
   const checkedNames = assignedActions.filter((name) =>
     allActions.some((a) => a.name === name),
   );
@@ -44,7 +48,6 @@ export default function ModuleConfigPanel({
 
   const drag = useDragReorder(handleReorder);
 
-  // Module variables
   const modVars = module.variables || {};
   const varKeys = Object.keys(modVars);
 
@@ -77,20 +80,18 @@ export default function ModuleConfigPanel({
 
   return (
     <div>
-      <div className="text-[0.78rem] text-text-secondary font-semibold mb-1">
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
         {module.name}
-      </div>
+      </Typography>
 
-      {/* Assigned actions */}
       {allActions.length > 0 && (
         <>
-          <div className="text-[0.78rem] text-text-secondary font-semibold mt-2 mb-1">
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1, mb: 0.5 }}>
             Assigned Actions:
-          </div>
-          {/* Draggable checked actions */}
+          </Typography>
           <div>
             {checkedNames.map((name, i) => (
-              <div
+              <Box
                 key={name}
                 draggable
                 onDragStart={(e) => drag.onDragStart(e, i)}
@@ -98,45 +99,41 @@ export default function ModuleConfigPanel({
                 onDragOver={(e) => drag.onDragOver(e, i)}
                 onDragLeave={drag.onDragLeave}
                 onDrop={(e) => drag.onDrop(e, i)}
-                className="flex items-center gap-1.5 py-1 text-[0.8rem]"
+                sx={{ display: "flex", alignItems: "center", gap: 0.75, py: 0.5 }}
               >
-                <GripVertical
-                  size={14}
-                  className="text-text-muted cursor-grab hover:text-text-secondary shrink-0"
+                <DragIndicatorIcon
+                  fontSize="small"
+                  sx={{ color: "text.disabled", cursor: "grab", flexShrink: 0 }}
                 />
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked
+                  size="small"
                   onChange={() => handleToggle(name, false)}
-                  className="m-0"
                 />
-                <span>{name}</span>
-              </div>
+                <Typography variant="body2">{name}</Typography>
+              </Box>
             ))}
           </div>
-          {/* Unchecked actions */}
           {uncheckedNames.map((name) => (
-            <div
+            <Box
               key={name}
-              className="flex items-center gap-1.5 py-1 text-[0.8rem]"
+              sx={{ display: "flex", alignItems: "center", gap: 0.75, py: 0.5 }}
             >
-              <span className="w-[24px] shrink-0" />
-              <input
-                type="checkbox"
+              <Box sx={{ width: 24, flexShrink: 0 }} />
+              <Checkbox
                 checked={false}
+                size="small"
                 onChange={() => handleToggle(name, true)}
-                className="m-0"
               />
-              <span>{name}</span>
-            </div>
+              <Typography variant="body2">{name}</Typography>
+            </Box>
           ))}
         </>
       )}
 
-      {/* Module variables */}
-      <div className="text-[0.78rem] text-text-secondary font-semibold mt-2 mb-1">
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1, mb: 0.5 }}>
         Module Variables:
-      </div>
+      </Typography>
       {varKeys.map((key) => (
         <VariableRow
           key={key}
@@ -147,13 +144,16 @@ export default function ModuleConfigPanel({
           onDelete={() => handleDeleteVar(key)}
         />
       ))}
-      <button
-        type="button"
+      <Button
+        fullWidth
+        variant="outlined"
+        size="small"
+        startIcon={<AddIcon />}
         onClick={handleAddVar}
-        className="w-full mt-1 py-1 bg-transparent border border-dashed border-border rounded text-text-secondary text-[0.78rem] text-center cursor-pointer hover:border-accent hover:text-accent"
+        sx={{ mt: 0.5, borderStyle: "dashed" }}
       >
-        + Add Module Variable
-      </button>
+        Add Module Variable
+      </Button>
     </div>
   );
 }

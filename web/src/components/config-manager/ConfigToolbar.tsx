@@ -1,4 +1,9 @@
 import { useState, useEffect } from "react";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import Chip from "@mui/material/Chip";
 import { fetchConfigs } from "../../api/client";
 
 interface Props {
@@ -33,65 +38,67 @@ export default function ConfigToolbar({
     refreshConfigs();
   }, []);
 
-  // Refresh config list after save/delete
   useEffect(() => {
     refreshConfigs();
   }, [dirty]);
 
   return (
-    <div className="flex items-center gap-2 px-6 py-2 bg-bg-secondary border-b border-border flex-wrap">
-      <button
-        type="button"
-        onClick={onNew}
-        className="px-3.5 py-1 bg-[#21262d] border border-border rounded-md text-text-primary font-semibold text-[0.82rem] cursor-pointer hover:bg-border whitespace-nowrap"
-      >
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        px: 3,
+        py: 1,
+        bgcolor: "background.paper",
+        borderBottom: 1,
+        borderColor: "divider",
+        flexWrap: "wrap",
+      }}
+    >
+      <Button variant="outlined" size="small" onClick={onNew}>
         New
-      </button>
-      <select
+      </Button>
+      <TextField
+        select
         value={selectedFile}
         onChange={(e) => setSelectedFile(e.target.value)}
-        className="px-2 py-1 bg-bg-input border border-border rounded text-text-primary text-[0.82rem] min-w-[180px] appearance-auto focus:outline-none focus:border-accent"
+        size="small"
+        sx={{ minWidth: 180 }}
       >
-        <option value="">— select config —</option>
+        <MenuItem value="">
+          <em>-- select config --</em>
+        </MenuItem>
         {configFiles.map((f) => (
-          <option key={f} value={f}>
+          <MenuItem key={f} value={f}>
             {f}
-          </option>
+          </MenuItem>
         ))}
-      </select>
-      <button
-        type="button"
-        onClick={() => onLoad(selectedFile)}
-        className="px-3.5 py-1 bg-[#21262d] border border-border rounded-md text-text-primary font-semibold text-[0.82rem] cursor-pointer hover:bg-border whitespace-nowrap"
-      >
+      </TextField>
+      <Button variant="outlined" size="small" onClick={() => onLoad(selectedFile)}>
         Load
-      </button>
-      <button
-        type="button"
-        onClick={onSave}
-        className="px-3.5 py-1 bg-green-solid border-green-solid rounded-md text-white font-semibold text-[0.82rem] cursor-pointer hover:bg-green-hover whitespace-nowrap"
-      >
+      </Button>
+      <Button variant="contained" color="success" size="small" onClick={onSave}>
         Save
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="contained"
+        color="error"
+        size="small"
         onClick={() => onDelete(selectedFile || filename)}
-        className="px-3.5 py-1 bg-red-solid border-red-solid rounded-md text-white font-semibold text-[0.82rem] cursor-pointer hover:bg-red whitespace-nowrap"
       >
         Delete
-      </button>
-      <input
-        type="text"
+      </Button>
+      <TextField
         value={filename}
         onChange={(e) => onFilenameChange(e.target.value)}
         placeholder="filename.config.json"
-        className="px-2 py-1 bg-bg-input border border-border rounded text-text-primary text-[0.82rem] min-w-[200px] focus:outline-none focus:border-accent"
+        size="small"
+        sx={{ minWidth: 200 }}
       />
       {dirty && (
-        <span className="text-[0.72rem] text-yellow font-semibold px-2 py-0.5 bg-yellow-bg rounded-xl">
-          unsaved
-        </span>
+        <Chip label="unsaved" color="warning" size="small" />
       )}
-    </div>
+    </Box>
   );
 }

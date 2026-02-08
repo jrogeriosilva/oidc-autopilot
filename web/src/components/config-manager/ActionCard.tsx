@@ -1,3 +1,10 @@
+import Paper from "@mui/material/Paper";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 import type { ActionConfig } from "../../types/api";
 
 interface Props {
@@ -7,40 +14,42 @@ interface Props {
 }
 
 export default function ActionCard({ action, onEdit, onDelete }: Props) {
-  const typeBadge =
-    action.type === "api"
-      ? "bg-blue-bg text-accent"
-      : "bg-green-bg text-green";
-
   return (
-    <div
-      className="flex items-center gap-2 px-3 py-2 bg-bg-input border border-border rounded-md mb-1.5 cursor-pointer hover:border-accent transition-colors"
+    <Paper
+      variant="outlined"
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        px: 1.5,
+        py: 1,
+        mb: 0.75,
+        cursor: "pointer",
+        "&:hover": { borderColor: "primary.main" },
+        transition: "border-color 0.2s",
+      }}
       onClick={onEdit}
     >
-      <span className="flex-1 text-[0.82rem] font-semibold text-text-heading overflow-hidden text-ellipsis whitespace-nowrap">
-        {action.name || "(unnamed)"}
-      </span>
-      <span
-        className={`text-[0.65rem] px-2 py-0.5 rounded-xl font-semibold uppercase ${typeBadge}`}
+      <Typography
+        variant="body2"
+        fontWeight="bold"
+        sx={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
       >
-        {action.type}
-      </span>
-      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={onEdit}
-          className="bg-transparent border border-border rounded text-text-secondary text-[0.72rem] px-2 py-0.5 cursor-pointer hover:text-text-primary hover:border-text-secondary"
-        >
+        {action.name || "(unnamed)"}
+      </Typography>
+      <Chip
+        label={action.type}
+        size="small"
+        color={action.type === "api" ? "primary" : "success"}
+      />
+      <Box sx={{ display: "flex", gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+        <Button size="small" onClick={onEdit}>
           edit
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="bg-transparent border border-border rounded text-red text-xs px-2 py-0.5 cursor-pointer hover:text-[#ff7b72] hover:border-red"
-        >
-          x
-        </button>
-      </div>
-    </div>
+        </Button>
+        <IconButton size="small" color="error" onClick={onDelete}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </Box>
+    </Paper>
   );
 }
