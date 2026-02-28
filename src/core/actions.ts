@@ -56,6 +56,7 @@ export class ActionExecutor {
     moduleVariables: Record<string, string>,
     logContext?: LogContext
   ): Promise<Record<string, string>> {
+    console.log("ActionExecutor.executeAction", name, capturedVariables, moduleVariables);
     const action = this.actions.get(name);
     if (!action) {
       throw new ActionExecutionError(
