@@ -3,7 +3,7 @@
 [![Version](https://badges.ws/badge/Version-0.1.0-blue)](https://github.com/jrogeriosilva/oidc-autopilot)
 [![Status](https://badges.ws/badge/Status-Beta-green)](https://github.com/jrogeriosilva/oidc-autopilot)
 [![License](https://badges.ws/badge/License-MIT-yellow)](./LICENSE)
-[![Node.js](https://badges.ws/badge/Node.js-18+-339933)](https://nodejs.org/)
+[![Node.js](https://badges.ws/badge/Node.js-20+-339933)](https://nodejs.org/)
 
 ![Dashboard](docs/dashboard.png)
 
@@ -52,7 +52,7 @@
 
 ## Requirements
 
-- **Node.js** 18 or higher
+- **Node.js** 20.x or higher
 - **npm** or **yarn**
 - Playwright-supported browsers
 
