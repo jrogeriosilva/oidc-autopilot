@@ -105,13 +105,32 @@ export class ActionExecutor {
       ? (applyTemplate(action.headers, variables) as Record<string, string>)
       : undefined;
 
+    const finalHeaders = this.client.getAuthHeaders(headers);
+    let finalBody: BodyInit | undefined = undefined;
+
+    if (payload) {
+      const contentType = Object.entries(finalHeaders).find(
+        ([key]) => key.toLowerCase() === "content-type"
+      )?.[1];
+
+      if (contentType && contentType.toLowerCase().includes("application/x-www-form-urlencoded")) {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(payload)) {
+          params.append(key, String(value));
+        }
+        finalBody = params.toString();
+      } else {
+        finalBody = JSON.stringify(payload);
+      }
+    }
+
     const captured: Record<string, string> = {};
     await this.client.requestJson<unknown>(
       endpoint,
       {
         method: action.method,
-        headers: this.client.getAuthHeaders(headers),
-        body: payload ? JSON.stringify(payload) : undefined,
+        headers: finalHeaders,
+        body: finalBody,
       },
       "ok",
       {

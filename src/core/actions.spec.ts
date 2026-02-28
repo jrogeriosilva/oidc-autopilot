@@ -169,6 +169,40 @@ describe("ActionExecutor", () => {
       expect(result).toEqual({ captured: "yes" });
     });
 
+    it("serializes payload as URLSearchParams for application/x-www-form-urlencoded", async () => {
+      const { ActionExecutor, mocks } = setupActionExecutor();
+      const browserSession = new mocks.BrowserSession(true);
+
+      const action = {
+        name: "actUrlEncoded",
+        type: "api" as const,
+        endpoint: "https://api.example/token",
+        method: "POST",
+        payload: { client_id: "test", client_secret: "secret" },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      };
+
+      const executor = new ActionExecutor([action], {
+        captureVars: [],
+        headless: true,
+        browserSession,
+      });
+
+      await executor.executeAction("actUrlEncoded", {}, {});
+
+      expect(mocks.requestJson).toHaveBeenCalledWith(
+        "https://api.example/token",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "Content-Type": "application/x-www-form-urlencoded",
+          }),
+          body: "client_id=test&client_secret=secret",
+        }),
+        "ok",
+        expect.anything()
+      );
+    });
+
     it("executes action without payload or headers", async () => {
       const { ActionExecutor, mocks } = setupActionExecutor();
       const browserSession = new mocks.BrowserSession(true);
