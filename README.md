@@ -96,19 +96,38 @@ cp env.example .env
 
 ```json
 {
-  "capture_vars": ["consent_id", "redirect_to"],
+  "capture_vars": ["access_token", "consent_id", "redirect_to"],
+  "variables": {
+    "bank_api_token_url": "https://your-bank-api.com/token",
+    "bank_api_credentials": "Basic base64_encoded_credentials"
+  },
   "actions": [
+    {
+      "name": "fetch_token",
+      "type": "api",
+      "endpoint": "{{bank_api_token_url}}",
+      "method": "POST",
+      "payload": {
+        "grant_type": "client_credentials"
+      },
+      "headers": {
+        "Authorization": "{{bank_api_credentials}}"
+      }
+    },
     {
       "name": "approve_consent",
       "type": "api",
       "endpoint": "https://your-bank-api.com/consent/{{consent_id}}/approve",
-      "method": "POST"
+      "method": "POST",
+      "headers": {
+        "Authorization": "Bearer {{access_token}}"
+      }
     }
   ],
   "modules": [
     {
       "name": "fapi1-advanced-final-ensure-request-object-signature-algorithm-is-valid",
-      "actions": ["approve_consent"]
+      "actions": ["fetch_token", "approve_consent"]
     }
   ]
 }
@@ -231,15 +250,17 @@ Execute HTTP requests and capture variables from responses:
 Example:
 ```json
 {
-  "name": "approve_consent",
+  "name": "fetch_token",
   "type": "api",
-  "endpoint": "https://api.example.com/consent/{{consent_id}}",
+  "endpoint": "https://api.example.com/token",
   "method": "POST",
   "payload": {
-    "status": "approved"
+    "client_id": "{{client_id}}",
+    "client_secret": "{{client_secret}}",
+    "grant_type": "client_credentials"
   },
   "headers": {
-    "Authorization": "Bearer {{token}}"
+    "Content-Type": "application/x-www-form-urlencoded"
   }
 }
 ```
