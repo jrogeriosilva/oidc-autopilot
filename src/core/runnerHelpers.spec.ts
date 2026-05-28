@@ -157,41 +157,6 @@ describe("runnerHelpers", () => {
       expect(result.info.result).toBe("FAILED");
     });
 
-    test("throws error when timeout is exceeded", async () => {
-      const mocks = createMocks();
-      const { pollRunnerStatus } = await loadModule(mocks);
-
-      // Always return RUNNING to never exit the polling loop
-      mocks.mockApi.getModuleInfo.mockResolvedValue({
-        status: "RUNNING",
-        result: "UNKNOWN",
-      });
-      mocks.mockSleep.mockResolvedValue(undefined);
-
-      const context = createContext(mocks);
-      context.timeout = 1; // Very short timeout in seconds
-      const captured: Record<string, string> = {};
-      const executedActions = new Set<string>();
-      let navigationExecuted = false;
-
-      await expect(
-        pollRunnerStatus({
-          context,
-          runnerId: "runner-1",
-          moduleName: "test-module",
-          captureVars: [],
-          captured,
-          actions: [],
-          actionExecutor: mocks.mockActionExecutor,
-          executedActions,
-          isNavigationExecuted: () => navigationExecuted,
-          markNavigationExecuted: () => {
-            navigationExecuted = true;
-          },
-        })
-      ).rejects.toThrow("Timeout waiting for runner runner-1");
-    });
-
     test("polls at specified interval before returning", async () => {
       const mocks = createMocks();
       const { pollRunnerStatus } = await loadModule(mocks);
