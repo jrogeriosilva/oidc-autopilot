@@ -1,13 +1,14 @@
+import { type MockInstance } from "vitest";
 import { createLogger } from "./logger";
 import type { ExecutionSummary } from "./types";
 
 describe("createLogger with hooks", () => {
-  let consoleSpy: jest.SpyInstance;
-  let consoleErrSpy: jest.SpyInstance;
+  let consoleSpy: MockInstance;
+  let consoleErrSpy: MockInstance;
 
   beforeEach(() => {
-    consoleSpy = jest.spyOn(console, "log").mockImplementation();
-    consoleErrSpy = jest.spyOn(console, "error").mockImplementation();
+    consoleSpy = vi.spyOn(console, "log").mockImplementation();
+    consoleErrSpy = vi.spyOn(console, "error").mockImplementation();
   });
 
   afterEach(() => {
@@ -16,7 +17,7 @@ describe("createLogger with hooks", () => {
   });
 
   it("should call onLine hook for info calls", () => {
-    const onLine = jest.fn();
+    const onLine = vi.fn();
     const logger = createLogger({ onLine });
 
     logger.info("test-msg", { moduleName: "mod1" });
@@ -25,7 +26,7 @@ describe("createLogger with hooks", () => {
   });
 
   it("should call onLine hook for log calls", () => {
-    const onLine = jest.fn();
+    const onLine = vi.fn();
     const logger = createLogger({ onLine });
 
     logger.log("hello");
@@ -34,7 +35,7 @@ describe("createLogger with hooks", () => {
   });
 
   it("should call onLine hook for error calls", () => {
-    const onLine = jest.fn();
+    const onLine = vi.fn();
     const logger = createLogger({ onLine });
 
     logger.error("boom", { actionName: "act1" });
@@ -43,7 +44,7 @@ describe("createLogger with hooks", () => {
   });
 
   it("should call onLine hook for debug calls", () => {
-    const onLine = jest.fn();
+    const onLine = vi.fn();
     const logger = createLogger({ onLine });
 
     logger.debug("dbg-msg");
@@ -52,7 +53,7 @@ describe("createLogger with hooks", () => {
   });
 
   it("should call onSummary hook when summary is invoked", () => {
-    const onSummary = jest.fn();
+    const onSummary = vi.fn();
     const logger = createLogger({ onSummary });
 
     const fakeSummary: ExecutionSummary = {
@@ -81,7 +82,7 @@ describe("createLogger with hooks", () => {
   });
 
   it("should still print to console when hooks are present", () => {
-    const onLine = jest.fn();
+    const onLine = vi.fn();
     const logger = createLogger({ onLine });
 
     logger.info("visible");

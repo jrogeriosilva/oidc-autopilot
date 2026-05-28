@@ -2,32 +2,32 @@ import type { PlanConfig } from "../config/schema";
 import { loadIsolatedModule } from "../testUtils/isolateModule";
 
 describe("Runner", () => {
-  const setupRunner = () => {
+  const setupRunner = async () => {
     const mocks = {
-      captureFromObject: jest.fn(),
-      browserNavigate: jest.fn().mockResolvedValue("http://final"),
-      browserClose: jest.fn().mockResolvedValue(undefined),
-      browserInitialize: jest.fn().mockResolvedValue(undefined),
-      sleep: jest.fn().mockResolvedValue(undefined),
-      ActionExecutor: jest.fn(),
-      BrowserSession: jest.fn(),
+      captureFromObject: vi.fn(),
+      browserNavigate: vi.fn().mockResolvedValue("http://final"),
+      browserClose: vi.fn().mockResolvedValue(undefined),
+      browserInitialize: vi.fn().mockResolvedValue(undefined),
+      sleep: vi.fn().mockResolvedValue(undefined),
+      ActionExecutor: vi.fn(),
+      BrowserSession: vi.fn(),
     };
 
-    const Runner = loadIsolatedModule(
+    const Runner = await loadIsolatedModule(
       () => {
-        jest.doMock("./capture", () => ({ captureFromObject: mocks.captureFromObject }));
-        jest.doMock("./browserSession", () => ({
+        vi.doMock("./capture", () => ({ captureFromObject: mocks.captureFromObject }));
+        vi.doMock("./browserSession", () => ({
           BrowserSession: mocks.BrowserSession.mockImplementation(() => ({
             navigate: mocks.browserNavigate,
             close: mocks.browserClose,
             initialize: mocks.browserInitialize,
-            isInitialized: jest.fn().mockReturnValue(true),
+            isInitialized: vi.fn().mockReturnValue(true),
           })),
         }));
-        jest.doMock("../utils/sleep", () => ({ sleep: mocks.sleep }));
-        jest.doMock("./actions", () => ({ ActionExecutor: mocks.ActionExecutor }));
+        vi.doMock("../utils/sleep", () => ({ sleep: mocks.sleep }));
+        vi.doMock("./actions", () => ({ ActionExecutor: mocks.ActionExecutor }));
       },
-      () => require("./runner").Runner
+      () => import("./runner").then((m) => m.Runner)
     );
 
     return { Runner, mocks };
@@ -35,11 +35,11 @@ describe("Runner", () => {
 
   const createRunner = (Runner: any, api: unknown) => {
     const logger = {
-      log: jest.fn(),
-      info: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-      summary: jest.fn(),
+      log: vi.fn(),
+      info: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      summary: vi.fn(),
     };
     const runner = new Runner({
       api,
@@ -67,23 +67,20 @@ describe("Runner", () => {
   };
 
   test("executePlan aggregates results and interrupted counts", async () => {
-    const { Runner, mocks } = setupRunner();
+    const { Runner, mocks } = await setupRunner();
 
-    mocks.ActionExecutor.mockImplementation(() => ({ executeAction: jest.fn() }));
+    mocks.ActionExecutor.mockImplementation(() => ({ executeAction: vi.fn() }));
 
     const api = {
-      registerRunner: jest
-        .fn()
-        .mockResolvedValueOnce("r1")
-        .mockResolvedValueOnce("r2"),
-      getModuleInfo: jest.fn(async (runnerId: string) => {
+      registerRunner: vi.fn().mockResolvedValueOnce("r1").mockResolvedValueOnce("r2"),
+      getModuleInfo: vi.fn(async (runnerId: string) => {
         if (runnerId === "r1") {
           return { status: "FINISHED", result: "PASSED" };
         }
         return { status: "INTERRUPTED", result: "FAILED" };
       }),
-      getRunnerInfo: jest.fn(),
-      getModuleLogs: jest.fn(),
+      getRunnerInfo: vi.fn(),
+      getModuleLogs: vi.fn(),
     };
 
     const { runner } = createRunner(Runner, api);
@@ -106,22 +103,21 @@ describe("Runner", () => {
   });
 
   test("executes navigation and actions once", async () => {
-    const { Runner, mocks } = setupRunner();
+    const { Runner, mocks } = await setupRunner();
 
-    const executeAction = jest.fn().mockResolvedValue({});
+    const executeAction = vi.fn().mockResolvedValue({});
     mocks.ActionExecutor.mockImplementation(() => ({ executeAction }));
     mocks.browserNavigate.mockResolvedValueOnce("http://final1");
 
     const api = {
-      registerRunner: jest.fn().mockResolvedValue("r1"),
-      getModuleInfo: jest
-        .fn()
+      registerRunner: vi.fn().mockResolvedValue("r1"),
+      getModuleInfo: vi.fn()
         .mockResolvedValueOnce({ status: "WAITING", result: "UNKNOWN" })
         .mockResolvedValueOnce({ status: "FINISHED", result: "PASSED" }),
-      getRunnerInfo: jest.fn().mockResolvedValue({
+      getRunnerInfo: vi.fn().mockResolvedValue({
         browser: { urls: ["http://start"], urlsWithMethod: [] },
       }),
-      getModuleLogs: jest.fn().mockResolvedValue({ entries: [] }),
+      getModuleLogs: vi.fn().mockResolvedValue({ entries: [] }),
     };
 
     const { runner } = createRunner(Runner, api);
@@ -147,7 +143,7 @@ describe("Runner", () => {
   });
 
   test("executes actions once and captures vars during WAITING", async () => {
-    const { Runner, mocks } = setupRunner();
+    const { Runner, mocks } = await setupRunner();
 
     mocks.captureFromObject.mockImplementation(
       (source: unknown, vars: string[], store: Record<string, string>) => {
@@ -163,19 +159,18 @@ describe("Runner", () => {
       }
     );
 
-    const executeAction = jest.fn().mockResolvedValue({ actionValue: "yes" });
+    const executeAction = vi.fn().mockResolvedValue({ actionValue: "yes" });
     mocks.ActionExecutor.mockImplementation(() => ({ executeAction }));
 
     const api = {
-      registerRunner: jest.fn().mockResolvedValue("r1"),
-      getModuleInfo: jest
-        .fn()
+      registerRunner: vi.fn().mockResolvedValue("r1"),
+      getModuleInfo: vi.fn()
         .mockResolvedValueOnce({ status: "WAITING", result: "UNKNOWN" })
         .mockResolvedValueOnce({ status: "FINISHED", result: "PASSED" }),
-      getRunnerInfo: jest.fn().mockResolvedValue({
+      getRunnerInfo: vi.fn().mockResolvedValue({
         browser: { urls: ["http://start"], urlsWithMethod: [] },
       }),
-      getModuleLogs: jest.fn().mockResolvedValue({ fromLog: "log-value" }),
+      getModuleLogs: vi.fn().mockResolvedValue({ fromLog: "log-value" }),
     };
 
     const { runner } = createRunner(Runner, api);
@@ -195,18 +190,17 @@ describe("Runner", () => {
   });
 
   test("stops polling when interrupted and skips actions", async () => {
-    const { Runner, mocks } = setupRunner();
+    const { Runner, mocks } = await setupRunner();
 
-    const executeAction = jest.fn();
+    const executeAction = vi.fn();
     mocks.ActionExecutor.mockImplementation(() => ({ executeAction }));
 
     const api = {
-      registerRunner: jest.fn().mockResolvedValue("r1"),
-      getModuleInfo: jest
-        .fn()
+      registerRunner: vi.fn().mockResolvedValue("r1"),
+      getModuleInfo: vi.fn()
         .mockResolvedValueOnce({ status: "INTERRUPTED", result: "FAILED" }),
-      getRunnerInfo: jest.fn(),
-      getModuleLogs: jest.fn(),
+      getRunnerInfo: vi.fn(),
+      getModuleLogs: vi.fn(),
     };
 
     const { runner } = createRunner(Runner, api);
@@ -226,21 +220,20 @@ describe("Runner", () => {
   });
 
   test("does not execute actions when no browser URL is available", async () => {
-    const { Runner, mocks } = setupRunner();
+    const { Runner, mocks } = await setupRunner();
 
-    const executeAction = jest.fn().mockResolvedValue({});
+    const executeAction = vi.fn().mockResolvedValue({});
     mocks.ActionExecutor.mockImplementation(() => ({ executeAction }));
 
     const api = {
-      registerRunner: jest.fn().mockResolvedValue("r1"),
-      getModuleInfo: jest
-        .fn()
+      registerRunner: vi.fn().mockResolvedValue("r1"),
+      getModuleInfo: vi.fn()
         .mockResolvedValueOnce({ status: "WAITING", result: "UNKNOWN" })
         .mockResolvedValueOnce({ status: "FINISHED", result: "PASSED" }),
-      getRunnerInfo: jest.fn().mockResolvedValue({
+      getRunnerInfo: vi.fn().mockResolvedValue({
         browser: { urls: [], urlsWithMethod: [] },
       }),
-      getModuleLogs: jest.fn().mockResolvedValue({ entries: [] }),
+      getModuleLogs: vi.fn().mockResolvedValue({ entries: [] }),
     };
 
     const { runner } = createRunner(Runner, api);

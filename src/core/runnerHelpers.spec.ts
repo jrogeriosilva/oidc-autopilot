@@ -1,39 +1,44 @@
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { loadIsolatedModule } from "../testUtils/isolateModule";
 import type { RunnerInfo } from "./conformanceApi";
 import type { Logger } from "./logger";
 import type { TestState, TestResult } from "./types";
 
 describe("runnerHelpers", () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
+
   const createMocks = () => {
     const mockApi = {
-      getModuleInfo: jest.fn(),
-      getRunnerInfo: jest.fn(),
-      getModuleLogs: jest.fn(),
+      getModuleInfo: vi.fn(),
+      getRunnerInfo: vi.fn(),
+      getModuleLogs: vi.fn(),
     };
 
     const mockLogger: Logger = {
-      info: jest.fn(),
-      log: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-      summary: jest.fn(),
+      info: vi.fn(),
+      log: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      summary: vi.fn(),
     };
 
     const mockActionExecutor = {
-      executeAction: jest.fn(),
+      executeAction: vi.fn(),
     };
 
-    const mockBrowserNavigate = jest.fn();
-    const mockBrowserClose = jest.fn().mockResolvedValue(undefined);
-    const mockBrowserInitialize = jest.fn().mockResolvedValue(undefined);
+    const mockBrowserNavigate = vi.fn();
+    const mockBrowserClose = vi.fn().mockResolvedValue(undefined);
+    const mockBrowserInitialize = vi.fn().mockResolvedValue(undefined);
     const mockBrowserSession = {
       navigate: mockBrowserNavigate,
       close: mockBrowserClose,
       initialize: mockBrowserInitialize,
-      isInitialized: jest.fn().mockReturnValue(true),
+      isInitialized: vi.fn().mockReturnValue(true),
     };
-    const mockCaptureFromObject = jest.fn();
-    const mockSleep = jest.fn().mockResolvedValue(undefined);
+    const mockCaptureFromObject = vi.fn();
+    const mockSleep = vi.fn().mockResolvedValue(undefined);
 
     return {
       mockApi,
@@ -47,29 +52,25 @@ describe("runnerHelpers", () => {
     };
   };
 
-  const loadModule = (mocks: ReturnType<typeof createMocks>) => {
+  const loadModule = async (mocks: ReturnType<typeof createMocks>) => {
     const {
-      mockApi,
-      mockLogger,
-      mockActionExecutor,
-      mockBrowserNavigate,
       mockCaptureFromObject,
       mockSleep,
     } = mocks;
 
-    const { pollRunnerStatus } = loadIsolatedModule(
+    const { pollRunnerStatus } = await loadIsolatedModule(
       () => {
-        jest.doMock("./browserSession", () => ({
-          BrowserSession: jest.fn(),
+        vi.doMock("./browserSession", () => ({
+          BrowserSession: vi.fn(),
         }));
-        jest.doMock("./capture", () => ({
+        vi.doMock("./capture", () => ({
           captureFromObject: mockCaptureFromObject,
         }));
-        jest.doMock("../utils/sleep", () => ({
+        vi.doMock("../utils/sleep", () => ({
           sleep: mockSleep,
         }));
       },
-      () => require("./runnerHelpers")
+      () => import("./runnerHelpers")
     );
 
     return { pollRunnerStatus };
@@ -87,7 +88,7 @@ describe("runnerHelpers", () => {
   describe("pollRunnerStatus", () => {
     test("returns state and info when FINISHED is reached", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo.mockResolvedValue({
         status: "FINISHED",
@@ -125,7 +126,7 @@ describe("runnerHelpers", () => {
 
     test("returns state and info when INTERRUPTED is reached", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo.mockResolvedValue({
         status: "INTERRUPTED",
@@ -158,7 +159,7 @@ describe("runnerHelpers", () => {
 
     test("throws error when timeout is exceeded", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       // Always return RUNNING to never exit the polling loop
       mocks.mockApi.getModuleInfo.mockResolvedValue({
@@ -193,7 +194,7 @@ describe("runnerHelpers", () => {
 
     test("polls at specified interval before returning", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       // Return RUNNING on first call, then FINISHED
       mocks.mockApi.getModuleInfo
@@ -232,7 +233,7 @@ describe("runnerHelpers", () => {
 
     test("captures variables from module info", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo.mockResolvedValue({
         status: "FINISHED",
@@ -265,7 +266,7 @@ describe("runnerHelpers", () => {
 
     test("handles WAITING state correctly", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -321,7 +322,7 @@ describe("runnerHelpers", () => {
 
     test("logs polling status at each iteration", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -365,7 +366,7 @@ describe("runnerHelpers", () => {
   describe("handleWaitingState", () => {
     test("navigates to URL from browser.urls when available", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo.mockResolvedValue({
         status: "WAITING",
@@ -422,7 +423,7 @@ describe("runnerHelpers", () => {
 
     test("prefers browser.urls[0] over urlsWithMethod GET", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -478,7 +479,7 @@ describe("runnerHelpers", () => {
 
     test("falls back to urlsWithMethod GET when browser.urls is empty", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -534,7 +535,7 @@ describe("runnerHelpers", () => {
 
     test("skips navigation when no URLs are available", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -580,7 +581,7 @@ describe("runnerHelpers", () => {
 
     test("navigation only executes once even if WAITING state is reached multiple times", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -634,7 +635,7 @@ describe("runnerHelpers", () => {
 
     test("executes actions after navigation is complete", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -696,7 +697,7 @@ describe("runnerHelpers", () => {
 
     test("skips action execution if navigation failed", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -744,7 +745,7 @@ describe("runnerHelpers", () => {
   describe("tryExecuteActions", () => {
     test("executes all configured actions", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -806,7 +807,7 @@ describe("runnerHelpers", () => {
 
     test("skips already executed actions", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -869,7 +870,7 @@ describe("runnerHelpers", () => {
 
     test("captures variables from action responses", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -925,7 +926,7 @@ describe("runnerHelpers", () => {
 
     test("fetches logs before executing actions", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -983,7 +984,7 @@ describe("runnerHelpers", () => {
 
     test("logs action execution progress", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -1043,7 +1044,7 @@ describe("runnerHelpers", () => {
   describe("navigateToUrl", () => {
     test("logs when no URLs are available", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -1090,7 +1091,7 @@ describe("runnerHelpers", () => {
 
     test("captures variables from target URL", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -1140,7 +1141,7 @@ describe("runnerHelpers", () => {
 
     test("logs successful navigation", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -1197,7 +1198,7 @@ describe("runnerHelpers", () => {
   describe("error handling", () => {
     test("handles API errors gracefully", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo.mockRejectedValue(
         new Error("API connection failed")
@@ -1228,7 +1229,7 @@ describe("runnerHelpers", () => {
 
     test("handles navigation errors gracefully", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -1277,7 +1278,7 @@ describe("runnerHelpers", () => {
 
     test("handles action execution errors", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -1334,7 +1335,7 @@ describe("runnerHelpers", () => {
   describe("integration scenarios", () => {
     test("complete flow: poll -> wait -> navigate -> action -> finished", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({
@@ -1402,7 +1403,7 @@ describe("runnerHelpers", () => {
 
     test("handles multiple polls before WAITING state", async () => {
       const mocks = createMocks();
-      const { pollRunnerStatus } = loadModule(mocks);
+      const { pollRunnerStatus } = await loadModule(mocks);
 
       mocks.mockApi.getModuleInfo
         .mockResolvedValueOnce({

@@ -1,14 +1,14 @@
 import { loadIsolatedModule } from "../testUtils/isolateModule";
 
 describe("ActionExecutor", () => {
-  const setupActionExecutor = () => {
-    const browserNavigateMock = jest.fn().mockResolvedValue("https://final.example");
+  const setupActionExecutor = async () => {
+    const browserNavigateMock = vi.fn().mockResolvedValue("https://final.example");
 
     const mocks = {
-      applyTemplate: jest.fn((value: unknown) => value),
-      captureFromObject: jest.fn(),
+      applyTemplate: vi.fn((value: unknown) => value),
+      captureFromObject: vi.fn(),
       browserNavigate: browserNavigateMock,
-      requestJson: jest
+      requestJson: vi
         .fn()
         .mockImplementation(
           async (
@@ -23,48 +23,48 @@ describe("ActionExecutor", () => {
             return { ok: true };
           }
         ),
-      getAuthHeaders: jest.fn((headers?: Record<string, string>) => ({
+      getAuthHeaders: vi.fn((headers?: Record<string, string>) => ({
         "Content-Type": "application/json",
         ...(headers ?? {}),
       })),
-      HttpClient: jest.fn(),
-      BrowserSession: jest.fn().mockImplementation(() => ({
+      HttpClient: vi.fn(),
+      BrowserSession: vi.fn().mockImplementation(() => ({
         navigate: browserNavigateMock,
-        close: jest.fn(),
-        initialize: jest.fn(),
-        isInitialized: jest.fn().mockReturnValue(true),
+        close: vi.fn(),
+        initialize: vi.fn(),
+        isInitialized: vi.fn().mockReturnValue(true),
       })),
     };
 
-    const ActionExecutor = loadIsolatedModule(
+    const ActionExecutor = await loadIsolatedModule(
       () => {
-        jest.doMock("./template", () => ({ applyTemplate: mocks.applyTemplate }));
-        jest.doMock("./capture", () => ({ captureFromObject: mocks.captureFromObject }));
-        jest.doMock("./browserSession", () => ({
+        vi.doMock("./template", () => ({ applyTemplate: mocks.applyTemplate }));
+        vi.doMock("./capture", () => ({ captureFromObject: mocks.captureFromObject }));
+        vi.doMock("./browserSession", () => ({
           BrowserSession: mocks.BrowserSession.mockImplementation(() => ({
             navigate: mocks.browserNavigate,
           })),
         }));
-        jest.doMock("./httpClient", () => ({
+        vi.doMock("./httpClient", () => ({
           HttpClient: mocks.HttpClient.mockImplementation(() => ({
             requestJson: mocks.requestJson,
             getAuthHeaders: mocks.getAuthHeaders,
           })),
         }));
       },
-      () => require("./actions").ActionExecutor
+      () => import("./actions").then((m) => m.ActionExecutor)
     );
 
     return { ActionExecutor, mocks };
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("getAction", () => {
-    it("returns action by name", () => {
-      const { ActionExecutor, mocks } = setupActionExecutor();
+    it("returns action by name", async () => {
+      const { ActionExecutor, mocks } = await setupActionExecutor();
       const browserSession = new mocks.BrowserSession(true);
       const actions = [
         {
@@ -87,7 +87,7 @@ describe("ActionExecutor", () => {
 
   describe("executeAction", () => {
     it("throws when action is missing", async () => {
-      const { ActionExecutor, mocks } = setupActionExecutor();
+      const { ActionExecutor, mocks } = await setupActionExecutor();
       const browserSession = new mocks.BrowserSession(true);
       const executor = new ActionExecutor([], {
         captureVars: [],
@@ -103,7 +103,7 @@ describe("ActionExecutor", () => {
 
   describe("API actions", () => {
     it("templates and executes HTTP request", async () => {
-      const { ActionExecutor, mocks } = setupActionExecutor();
+      const { ActionExecutor, mocks } = await setupActionExecutor();
       const browserSession = new mocks.BrowserSession(true);
 
       const rawPayload = { foo: "{{bar}}" };
@@ -170,7 +170,7 @@ describe("ActionExecutor", () => {
     });
 
     it("serializes payload as URLSearchParams for application/x-www-form-urlencoded", async () => {
-      const { ActionExecutor, mocks } = setupActionExecutor();
+      const { ActionExecutor, mocks } = await setupActionExecutor();
       const browserSession = new mocks.BrowserSession(true);
 
       const action = {
@@ -204,7 +204,7 @@ describe("ActionExecutor", () => {
     });
 
     it("executes action without payload or headers", async () => {
-      const { ActionExecutor, mocks } = setupActionExecutor();
+      const { ActionExecutor, mocks } = await setupActionExecutor();
       const browserSession = new mocks.BrowserSession(true);
 
       const action = {
@@ -245,7 +245,7 @@ describe("ActionExecutor", () => {
 
   describe("Browser actions", () => {
     it("navigates and captures final URL", async () => {
-      const { ActionExecutor, mocks } = setupActionExecutor();
+      const { ActionExecutor, mocks } = await setupActionExecutor();
       const browserSession = new mocks.BrowserSession(true);
 
       const action = {
@@ -284,7 +284,7 @@ describe("ActionExecutor", () => {
     });
 
     it("supports different wait strategies", async () => {
-      const { ActionExecutor, mocks } = setupActionExecutor();
+      const { ActionExecutor, mocks } = await setupActionExecutor();
       const browserSession = new mocks.BrowserSession(true);
 
       const action = {
@@ -309,7 +309,7 @@ describe("ActionExecutor", () => {
 
   describe("Variable merging", () => {
     it("merges variables with correct precedence: captured > module > global", async () => {
-      const { ActionExecutor, mocks } = setupActionExecutor();
+      const { ActionExecutor, mocks } = await setupActionExecutor();
       const browserSession = new mocks.BrowserSession(true);
 
       const action = {

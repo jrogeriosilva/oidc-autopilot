@@ -1,43 +1,44 @@
+import { type Mock, type MockInstance } from "vitest";
 import { runCli } from "./cli";
 import { loadConfig } from "./config/loadConfig";
 import { ConformanceApi } from "./core/conformanceApi";
 import { Runner } from "./core/runner";
 import { createLogger } from "./core/logger";
 
-jest.mock("./config/loadConfig");
-jest.mock("./core/conformanceApi");
-jest.mock("./core/runner");
-jest.mock("./core/logger");
-jest.mock("dotenv", () => ({
-  config: jest.fn(),
+vi.mock("./config/loadConfig");
+vi.mock("./core/conformanceApi");
+vi.mock("./core/runner");
+vi.mock("./core/logger");
+vi.mock("dotenv", () => ({
+  config: vi.fn(),
 }));
 
-const mockedLoadConfig = jest.mocked(loadConfig);
-const MockedConformanceApi = jest.mocked(ConformanceApi);
-const MockedRunner = jest.mocked(Runner);
-const mockedCreateLogger = jest.mocked(createLogger);
+const mockedLoadConfig = vi.mocked(loadConfig);
+const MockedConformanceApi = vi.mocked(ConformanceApi);
+const MockedRunner = vi.mocked(Runner);
+const mockedCreateLogger = vi.mocked(createLogger);
 
 const setArgv = (args: string[]) => {
   process.argv = ["node", "cli.js", ...args];
 };
 
 describe("runCli", () => {
-  let exitSpy: jest.SpyInstance;
-  let errorSpy: jest.SpyInstance;
+  let exitSpy: MockInstance;
+  let errorSpy: MockInstance;
 
   beforeEach(() => {
-    jest.resetAllMocks();
-    jest.restoreAllMocks();
-    exitSpy = jest
+    vi.resetAllMocks();
+    vi.restoreAllMocks();
+    exitSpy = vi
       .spyOn(process, "exit")
       .mockImplementation((() => {
         throw new Error("process.exit");
       }) as never);
-    errorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     mockedCreateLogger.mockReturnValue({
-      info: jest.fn(),
-      summary: jest.fn(),
+      info: vi.fn(),
+      summary: vi.fn(),
     } as never);
 
     mockedLoadConfig.mockReturnValue({
@@ -46,7 +47,7 @@ describe("runCli", () => {
 
     MockedConformanceApi.mockImplementation((() => ({})) as never);
     MockedRunner.mockImplementation((() => ({
-      executePlan: jest.fn().mockResolvedValue({
+      executePlan: vi.fn().mockResolvedValue({
         passed: 1,
         failed: 0,
         interrupted: 0,
@@ -94,7 +95,7 @@ describe("runCli", () => {
       expect.objectContaining({ token: "env-token" })
     );
     const runnerInstance = MockedRunner.mock.results[0]?.value as {
-      executePlan: jest.Mock;
+      executePlan: Mock;
     };
     expect(runnerInstance.executePlan).toHaveBeenCalledWith(
       expect.objectContaining({ planId: "env-plan" })
@@ -142,7 +143,7 @@ describe("runCli", () => {
       })
     );
     const runnerInstance = MockedRunner.mock.results[0]?.value as {
-      executePlan: jest.Mock;
+      executePlan: Mock;
     };
     expect(runnerInstance.executePlan).toHaveBeenCalledWith({
       planId: "p1",
@@ -165,7 +166,7 @@ describe("runCli", () => {
 
   it("exits when summary has failures", async () => {
     MockedRunner.mockImplementation((() => ({
-      executePlan: jest.fn().mockResolvedValue({
+      executePlan: vi.fn().mockResolvedValue({
         passed: 0,
         failed: 1,
         interrupted: 0,
@@ -180,7 +181,7 @@ describe("runCli", () => {
 
   it("exits when summary has interruptions", async () => {
     MockedRunner.mockImplementation((() => ({
-      executePlan: jest.fn().mockResolvedValue({
+      executePlan: vi.fn().mockResolvedValue({
         passed: 1,
         failed: 0,
         interrupted: 1,
@@ -195,7 +196,7 @@ describe("runCli", () => {
 
   it("logs error and exits on executePlan error", async () => {
     MockedRunner.mockImplementation((() => ({
-      executePlan: jest.fn().mockRejectedValue(new Error("boom")),
+      executePlan: vi.fn().mockRejectedValue(new Error("boom")),
     })) as never);
 
     setArgv(["--config", "./config.json", "--plan-id", "p1", "--token", "t1"]);
