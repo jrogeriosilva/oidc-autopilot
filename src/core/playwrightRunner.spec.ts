@@ -1,35 +1,36 @@
+import { type Mock } from "vitest";
 import { BrowserSession } from "./browserSession";
 
-const launch = jest.fn();
+const launch = vi.fn();
 
-jest.mock("playwright", () => ({
+vi.mock("playwright", () => ({
   chromium: { launch: (...args: unknown[]) => launch(...args) },
 }));
 
 describe("BrowserSession", () => {
-  let closeContext: jest.Mock;
-  let closeBrowser: jest.Mock;
-  let goto: jest.Mock;
-  let urlFn: jest.Mock;
-  let page: { goto: jest.Mock; url: jest.Mock };
-  let context: { newPage: jest.Mock; close: jest.Mock };
-  let browser: { newContext: jest.Mock; close: jest.Mock };
+  let closeContext: Mock;
+  let closeBrowser: Mock;
+  let goto: Mock;
+  let urlFn: Mock;
+  let page: { goto: Mock; url: Mock };
+  let context: { newPage: Mock; close: Mock };
+  let browser: { newContext: Mock; close: Mock };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
-    closeContext = jest.fn().mockResolvedValue(undefined);
-    closeBrowser = jest.fn().mockResolvedValue(undefined);
-    goto = jest.fn().mockResolvedValue(undefined);
-    urlFn = jest.fn().mockReturnValue("https://final.example");
+    closeContext = vi.fn().mockResolvedValue(undefined);
+    closeBrowser = vi.fn().mockResolvedValue(undefined);
+    goto = vi.fn().mockResolvedValue(undefined);
+    urlFn = vi.fn().mockReturnValue("https://final.example");
 
     page = { goto, url: urlFn };
     context = {
-      newPage: jest.fn().mockResolvedValue(page),
+      newPage: vi.fn().mockResolvedValue(page),
       close: closeContext,
     };
     browser = {
-      newContext: jest.fn().mockResolvedValue(context),
+      newContext: vi.fn().mockResolvedValue(context),
       close: closeBrowser,
     };
     launch.mockResolvedValue(browser);

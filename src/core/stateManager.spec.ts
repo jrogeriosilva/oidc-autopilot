@@ -1,3 +1,9 @@
+import { type Mocked } from "vitest";
+
+vi.mock("../utils/sleep", () => ({
+  sleep: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { StateManager } from './stateManager';
 import { StateTimeoutError } from './errors';
 import type { ConformanceApi } from './conformanceApi';
@@ -5,31 +11,31 @@ import type { Logger } from './logger';
 
 describe('StateManager', () => {
   let stateManager: StateManager;
-  let mockApi: jest.Mocked<ConformanceApi>;
-  let mockLogger: jest.Mocked<Logger>;
+  let mockApi: Mocked<ConformanceApi>;
+  let mockLogger: Mocked<Logger>;
 
   beforeEach(() => {
     mockApi = {
-      getModuleInfo: jest.fn(),
-      getRunnerInfo: jest.fn(),
-      getModuleLogs: jest.fn(),
-      registerRunner: jest.fn(),
-      startModule: jest.fn(),
+      getModuleInfo: vi.fn(),
+      getRunnerInfo: vi.fn(),
+      getModuleLogs: vi.fn(),
+      registerRunner: vi.fn(),
+      startModule: vi.fn(),
     } as any;
 
     mockLogger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      error: jest.fn(),
-      log: jest.fn(),
-      summary: jest.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      error: vi.fn(),
+      log: vi.fn(),
+      summary: vi.fn(),
     } as any;
 
     stateManager = new StateManager(mockApi, 0.1, 5, mockLogger);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('pollUntilTerminal', () => {
@@ -70,7 +76,7 @@ describe('StateManager', () => {
     });
 
     it('should call navigation handler on WAITING state', async () => {
-      const onNavigate = jest.fn().mockResolvedValue(true);
+      const onNavigate = vi.fn().mockResolvedValue(true);
 
       mockApi.getModuleInfo
         .mockResolvedValueOnce({ status: 'WAITING', result: 'UNKNOWN' } as any)
@@ -95,8 +101,8 @@ describe('StateManager', () => {
     });
 
     it('should call action handler after navigation', async () => {
-      const onNavigate = jest.fn().mockResolvedValue(true);
-      const onExecuteActions = jest.fn().mockResolvedValue(undefined);
+      const onNavigate = vi.fn().mockResolvedValue(true);
+      const onExecuteActions = vi.fn().mockResolvedValue(undefined);
 
       mockApi.getModuleInfo
         .mockResolvedValueOnce({ status: 'WAITING', result: 'UNKNOWN' } as any)
@@ -119,8 +125,8 @@ describe('StateManager', () => {
     });
 
     it('should call action handler multiple times until terminal', async () => {
-      const onNavigate = jest.fn().mockResolvedValue(true);
-      const onExecuteActions = jest.fn().mockResolvedValue(undefined);
+      const onNavigate = vi.fn().mockResolvedValue(true);
+      const onExecuteActions = vi.fn().mockResolvedValue(undefined);
 
       mockApi.getModuleInfo
         .mockResolvedValueOnce({ status: 'WAITING', result: 'UNKNOWN' } as any)
@@ -158,8 +164,8 @@ describe('StateManager', () => {
     });
 
     it('should not call action handler if navigation returns false', async () => {
-      const onNavigate = jest.fn().mockResolvedValue(false);
-      const onExecuteActions = jest.fn().mockResolvedValue(undefined);
+      const onNavigate = vi.fn().mockResolvedValue(false);
+      const onExecuteActions = vi.fn().mockResolvedValue(undefined);
 
       mockApi.getModuleInfo
         .mockResolvedValueOnce({ status: 'WAITING', result: 'UNKNOWN' } as any)
@@ -228,7 +234,7 @@ describe('StateManager', () => {
 
     it('should capture variables from runner info during navigation', async () => {
       const captured: Record<string, string> = {};
-      const onNavigate = jest.fn().mockResolvedValue(true);
+      const onNavigate = vi.fn().mockResolvedValue(true);
 
       mockApi.getModuleInfo
         .mockResolvedValueOnce({ status: 'WAITING', result: 'UNKNOWN' } as any)

@@ -1,9 +1,9 @@
 import { HttpClient } from "./httpClient";
 import { captureFromObject, captureFromUrl } from "./capture";
 
-jest.mock("./capture", () => ({
-  captureFromObject: jest.fn(),
-  captureFromUrl: jest.fn(),
+vi.mock("./capture", () => ({
+  captureFromObject: vi.fn(),
+  captureFromUrl: vi.fn(),
 }));
 
 const mockFetch = (response: Partial<Response> & { text?: () => Promise<string> }) => {
@@ -12,12 +12,12 @@ const mockFetch = (response: Partial<Response> & { text?: () => Promise<string> 
     status: 200,
     text: async () => "",
   };
-  (global as any).fetch = jest.fn().mockResolvedValue({ ...defaultResponse, ...response });
+  (global as any).fetch = vi.fn().mockResolvedValue({ ...defaultResponse, ...response });
 };
 
 describe("HttpClient", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("buildUrl throws when baseUrl is missing", () => {

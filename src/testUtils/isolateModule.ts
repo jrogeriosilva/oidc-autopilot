@@ -1,12 +1,10 @@
-export const loadIsolatedModule = <T>(
+import { vi } from "vitest";
+
+export const loadIsolatedModule = async <T>(
   setupMocks: () => void,
-  loadModule: () => T
-): T => {
-  jest.resetModules();
-  let module: T;
-  jest.isolateModules(() => {
-    setupMocks();
-    module = loadModule();
-  });
-  return module!;
+  loadModule: () => Promise<T>
+): Promise<T> => {
+  vi.resetModules();
+  setupMocks();
+  return loadModule();
 };
