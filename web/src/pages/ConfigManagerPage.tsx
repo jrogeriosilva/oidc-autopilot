@@ -1,17 +1,47 @@
 import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import DataObjectIcon from "@mui/icons-material/DataObject";
+import DownloadForOfflineIcon from "@mui/icons-material/DownloadForOffline";
+import BoltIcon from "@mui/icons-material/Bolt";
+import LibraryBooksIcon from "@mui/icons-material/LibraryBooks";
+import ChecklistIcon from "@mui/icons-material/Checklist";
 import { useConfigManager } from "../hooks/useConfigManager";
 import { fetchConfigFile, saveConfigFile, deleteConfigFile, fetchPlanInfo } from "../api/configApi";
-import { fetchConfigs } from "../api/client";
-import ConfigToolbar from "../components/config-manager/ConfigToolbar";
-import CollapsibleSection from "../components/ui/CollapsibleSection";
+import ConfigToolbar, { validateFilename } from "../components/config-manager/ConfigToolbar";
 import GlobalVariablesEditor from "../components/config-manager/GlobalVariablesEditor";
 import CaptureVariablesEditor from "../components/config-manager/CaptureVariablesEditor";
 import ActionsEditor from "../components/config-manager/ActionsEditor";
 import AvailableModulesPanel from "../components/config-manager/AvailableModulesPanel";
 import SelectedModulesPanel from "../components/config-manager/SelectedModulesPanel";
-import ModuleConfigPanel from "../components/config-manager/ModuleConfigPanel";
+import JsonPreview from "../components/config-manager/JsonPreview";
 import StatusBar from "../components/config-manager/StatusBar";
-import type { ModuleConfig } from "../types/api";
+
+function SectionHeader({
+  icon,
+  title,
+  hint,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  hint?: string | number;
+}) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 1 }}>
+      <Box sx={{ color: "text.secondary", display: "inline-flex" }}>{icon}</Box>
+      <Typography
+        variant="subtitle2"
+        sx={{ textTransform: "uppercase", letterSpacing: "0.04em" }}
+      >
+        {title}
+      </Typography>
+      {hint !== undefined && (
+        <Typography variant="caption" sx={{ color: "text.disabled", ml: "auto" }}>
+          {hint}
+        </Typography>
+      )}
+    </Box>
+  );
+}
 
 export default function ConfigManagerPage() {
   const cm = useConfigManager();
@@ -37,16 +67,12 @@ export default function ConfigManagerPage() {
 
   const handleSave = async () => {
     const fname = state.filename.trim();
-    if (!fname) {
-      cm.setStatus("Enter a filename", true);
-      return;
-    }
-    if (!fname.endsWith(".config.json")) {
-      cm.setStatus("Filename must end with .config.json", true);
+    const v = validateFilename(fname);
+    if (!v.ok) {
+      cm.setStatus(v.msg || "Invalid filename", true);
       return;
     }
 
-    // Client-side validation
     const errors: string[] = [];
     const actionNames: Record<string, boolean> = {};
     for (let i = 0; i < state.config.actions.length; i++) {
@@ -107,7 +133,6 @@ export default function ConfigManagerPage() {
       cm.setModules([...state.config.modules, { name }]);
     } else {
       cm.setModules(state.config.modules.filter((m) => m.name !== name));
-      if (state.selectedModuleName === name) cm.setSelectedModule(null);
     }
   };
 
@@ -123,7 +148,7 @@ export default function ConfigManagerPage() {
 
   const handleDeselectAll = () => {
     cm.setModules([]);
-    cm.setSelectedModule(null);
+    cm.setExpandedModule(null);
   };
 
   const handleModuleReorder = (from: number, to: number) => {
@@ -134,21 +159,23 @@ export default function ConfigManagerPage() {
   };
 
   const handleRemoveModule = (index: number) => {
-    const name = state.config.modules[index]?.name;
     const modules = state.config.modules.filter((_, i) => i !== index);
     cm.setModules(modules);
-    if (state.selectedModuleName === name) cm.setSelectedModule(null);
+    if (state.expandedModuleIndex === index) cm.setExpandedModule(null);
   };
 
-  const selectedModule = state.config.modules.find(
-    (m) => m.name === state.selectedModuleName,
-  );
+  const handleChangeModuleActions = (index: number, actions: string[]) => {
+    const modules = [...state.config.modules];
+    modules[index] = { ...modules[index], actions };
+    cm.setModules(modules);
+  };
 
   return (
     <>
       <ConfigToolbar
         filename={state.filename}
         dirty={state.dirty}
+        lastSavedAt={state.lastSavedAt}
         onNew={cm.newConfig}
         onLoad={handleLoad}
         onSave={handleSave}
@@ -156,37 +183,87 @@ export default function ConfigManagerPage() {
         onFilenameChange={cm.setFilename}
       />
 
-      <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Left panel */}
-        <Box sx={{ width: "42%", overflowY: "auto", p: 2, borderRight: 1, borderColor: "divider" }}>
-          <CollapsibleSection title="Global Variables">
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            md: "minmax(280px, 28%) minmax(360px, 1fr)",
+            lg: "minmax(280px, 28%) minmax(360px, 1fr) minmax(360px, 32%)",
+          },
+          flex: 1,
+          overflow: "hidden",
+        }}
+      >
+        {/* Left: Editors */}
+        <Box
+          sx={{
+            overflowY: "auto",
+            p: 2,
+            borderRight: 1,
+            borderColor: "divider",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          <Box component="section">
+            <SectionHeader
+              icon={<DataObjectIcon fontSize="small" />}
+              title="Global Variables"
+              hint={Object.keys(state.config.variables || {}).length}
+            />
             <GlobalVariablesEditor
               variables={state.config.variables}
               onChange={cm.setVariables}
             />
-          </CollapsibleSection>
-
-          <CollapsibleSection title="Capture Variables">
+          </Box>
+          <Box component="section">
+            <SectionHeader
+              icon={<DownloadForOfflineIcon fontSize="small" />}
+              title="Capture Variables"
+              hint={(state.config.capture_vars || []).length}
+            />
             <CaptureVariablesEditor
               vars={state.config.capture_vars}
               onChange={cm.setCaptureVars}
             />
-          </CollapsibleSection>
-
-          <CollapsibleSection title="Actions">
+          </Box>
+          <Box component="section">
+            <SectionHeader
+              icon={<BoltIcon fontSize="small" />}
+              title="Actions"
+              hint={(state.config.actions || []).length}
+            />
             <ActionsEditor
               actions={state.config.actions}
+              modules={state.config.modules}
               editingIndex={state.editingActionIndex}
               onSetActions={cm.setActions}
               onSetEditing={cm.setEditingAction}
               onUpdateAction={cm.updateAction}
             />
-          </CollapsibleSection>
+          </Box>
         </Box>
 
-        {/* Right panel */}
-        <Box sx={{ width: "58%", overflowY: "auto", p: 2 }}>
-          <CollapsibleSection title="Available Modules">
+        {/* Middle: Modules */}
+        <Box
+          sx={{
+            overflowY: "auto",
+            p: 2,
+            borderRight: { lg: 1 },
+            borderColor: "divider",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          <Box component="section">
+            <SectionHeader
+              icon={<LibraryBooksIcon fontSize="small" />}
+              title="Available Modules"
+              hint={state.availableModules.length}
+            />
             <AvailableModulesPanel
               availableModules={state.availableModules}
               configModules={state.config.modules}
@@ -195,34 +272,49 @@ export default function ConfigManagerPage() {
               onDeselectAll={handleDeselectAll}
               onFetch={handleFetchModules}
             />
-          </CollapsibleSection>
-
-          <CollapsibleSection title="Selected Modules">
+          </Box>
+          <Box component="section">
+            <SectionHeader
+              icon={<ChecklistIcon fontSize="small" />}
+              title="Selected Modules"
+              hint={`${state.config.modules.length}${state.expandedModuleIndex != null ? " · 1 expanded" : ""}`}
+            />
             <SelectedModulesPanel
               modules={state.config.modules}
-              selectedName={state.selectedModuleName}
+              allActions={state.config.actions}
+              expandedIndex={state.expandedModuleIndex}
+              onSetExpandedIndex={cm.setExpandedModule}
               onReorder={handleModuleReorder}
-              onSelect={cm.setSelectedModule}
               onRemove={handleRemoveModule}
+              onChangeActions={handleChangeModuleActions}
             />
-          </CollapsibleSection>
+            {state.config.modules.length > 0 && (
+              <Typography
+                variant="caption"
+                sx={{ color: "text.disabled", display: "block", mt: 0.75 }}
+              >
+                Click a row to attach actions. Drag the handle to reorder.
+              </Typography>
+            )}
+          </Box>
+        </Box>
 
-          {selectedModule && (
-            <CollapsibleSection title="Module Config">
-              <ModuleConfigPanel
-                module={selectedModule}
-                allActions={state.config.actions}
-                onChange={(mod) => cm.updateModule(mod.name, mod)}
-              />
-            </CollapsibleSection>
-          )}
+        {/* Right: JSON preview */}
+        <Box
+          sx={{
+            overflow: "hidden",
+            p: 2,
+            display: { xs: "none", lg: "flex" },
+            flexDirection: "column",
+            minHeight: 0,
+            bgcolor: "rgba(0,0,0,0.15)",
+          }}
+        >
+          <JsonPreview config={state.config} filename={state.filename} />
         </Box>
       </Box>
 
-      <StatusBar
-        message={state.statusMessage}
-        isError={state.statusError}
-      />
+      <StatusBar message={state.statusMessage} isError={state.statusError} />
     </>
   );
 }

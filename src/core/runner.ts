@@ -233,7 +233,7 @@ export class Runner {
         { correlationId, moduleName }
       );
 
-      this.logger.log('Module execution completed', {
+      this.logger.log(`Module execution completed: ${terminalState.info.result}`, {
         correlationId,
         moduleName,
         state: terminalState.state,
