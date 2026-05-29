@@ -10,6 +10,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import Button from "@mui/material/Button";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import TuneIcon from "@mui/icons-material/Tune";
 import TokenInput from "./TokenInput";
 import { fetchConfigs, fetchEnvDefaults, launchPlan, stopExecution } from "../../api/client";
 import type { LaunchPayload } from "../../types/api";
@@ -18,9 +19,17 @@ interface Props {
   isRunning: boolean;
   onLaunched: () => void;
   onError: (msg: string) => void;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
-export default function LaunchForm({ isRunning, onLaunched, onError }: Props) {
+export default function LaunchForm({
+  isRunning,
+  onLaunched,
+  onError,
+  expanded,
+  onExpandedChange,
+}: Props) {
   const [configFiles, setConfigFiles] = useState<string[]>([]);
   const [configPath, setConfigPath] = useState("");
   const [planId, setPlanId] = useState("");
@@ -30,6 +39,14 @@ export default function LaunchForm({ isRunning, onLaunched, onError }: Props) {
   const [timeout, setTimeout_] = useState(240);
   const [headless, setHeadless] = useState(true);
   const [stopping, setStopping] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(true);
+
+  const isControlled = expanded !== undefined;
+  const isExpanded = isControlled ? expanded! : internalExpanded;
+  const toggleExpanded = (next: boolean) => {
+    if (onExpandedChange) onExpandedChange(next);
+    if (!isControlled) setInternalExpanded(next);
+  };
 
   useEffect(() => {
     fetchConfigs()
@@ -75,9 +92,44 @@ export default function LaunchForm({ isRunning, onLaunched, onError }: Props) {
   };
 
   return (
-    <Accordion defaultExpanded disableGutters square sx={{ borderBottom: 1, borderColor: "divider" }}>
+    <Accordion
+      expanded={isExpanded}
+      onChange={(_, next) => toggleExpanded(next)}
+      disableGutters
+      square
+      sx={{ borderBottom: 1, borderColor: "divider" }}
+    >
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="subtitle2">Plan Configuration</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0, flex: 1 }}>
+          <TuneIcon fontSize="small" />
+          <Typography variant="subtitle2">Plan Configuration</Typography>
+          {!isExpanded && (
+            <Box
+              sx={{
+                display: "flex",
+                gap: 0.75,
+                alignItems: "center",
+                overflow: "hidden",
+                color: "text.secondary",
+                fontSize: 12.5,
+              }}
+            >
+              <Box component="span" sx={{ color: "text.disabled" }}>·</Box>
+              <Box
+                component="span"
+                sx={{ fontFamily: "Roboto Mono, monospace", fontSize: 12, color: "primary.main" }}
+              >
+                {configPath || "(no file)"}
+              </Box>
+              <Box component="span" sx={{ color: "text.disabled" }}>·</Box>
+              <Box component="span" sx={{ fontFamily: "Roboto Mono, monospace", fontSize: 12 }}>
+                {planId || "(no plan)"}
+              </Box>
+              <Box component="span" sx={{ color: "text.disabled" }}>·</Box>
+              <Box component="span">poll {pollInterval}s</Box>
+            </Box>
+          )}
+        </Box>
       </AccordionSummary>
       <AccordionDetails>
         <form onSubmit={handleSubmit} autoComplete="off">

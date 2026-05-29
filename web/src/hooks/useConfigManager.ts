@@ -7,9 +7,11 @@ interface ConfigManagerState {
   config: PlanConfig;
   availableModules: string[];
   selectedModuleName: string | null;
+  expandedModuleIndex: number | null;
   editingActionIndex: number;
   statusMessage: string;
   statusError: boolean;
+  lastSavedAt: number | null;
 }
 
 type Action =
@@ -20,6 +22,7 @@ type Action =
   | { type: "SET_STATUS"; message: string; isError: boolean }
   | { type: "SET_AVAILABLE_MODULES"; modules: string[] }
   | { type: "SET_SELECTED_MODULE"; name: string | null }
+  | { type: "SET_EXPANDED_MODULE"; index: number | null }
   | { type: "SET_EDITING_ACTION"; index: number }
   | { type: "SET_VARIABLES"; variables: Record<string, string> }
   | { type: "SET_CAPTURE_VARS"; vars: string[] }
@@ -41,9 +44,11 @@ const initialState: ConfigManagerState = {
   config: { ...emptyConfig },
   availableModules: [],
   selectedModuleName: null,
+  expandedModuleIndex: null,
   editingActionIndex: -1,
   statusMessage: "Ready",
   statusError: false,
+  lastSavedAt: null,
 };
 
 function reducer(
@@ -65,18 +70,21 @@ function reducer(
         config: action.config,
         editingActionIndex: -1,
         selectedModuleName: null,
+        expandedModuleIndex: null,
+        lastSavedAt: Date.now(),
         statusMessage: `Loaded: ${action.filename}`,
         statusError: false,
       };
 
     case "SET_FILENAME":
-      return { ...state, filename: action.filename };
+      return { ...state, filename: action.filename, dirty: true };
 
     case "MARK_SAVED":
       return {
         ...state,
         filename: action.filename,
         dirty: false,
+        lastSavedAt: Date.now(),
         statusMessage: `Saved: ${action.filename}`,
         statusError: false,
       };
@@ -93,6 +101,9 @@ function reducer(
 
     case "SET_SELECTED_MODULE":
       return { ...state, selectedModuleName: action.name };
+
+    case "SET_EXPANDED_MODULE":
+      return { ...state, expandedModuleIndex: action.index };
 
     case "SET_EDITING_ACTION":
       return { ...state, editingActionIndex: action.index };
@@ -127,11 +138,20 @@ function reducer(
 
     case "UPDATE_ACTION": {
       const actions = [...state.config.actions];
+      const oldName = state.config.actions[action.index]?.name;
+      const newName = action.action.name;
       actions[action.index] = action.action;
+      let modules = state.config.modules;
+      if (oldName && newName && oldName !== newName) {
+        modules = modules.map((m) => ({
+          ...m,
+          actions: (m.actions || []).map((x) => (x === oldName ? newName : x)),
+        }));
+      }
       return {
         ...state,
         dirty: true,
-        config: { ...state.config, actions },
+        config: { ...state.config, actions, modules },
       };
     }
 
@@ -181,6 +201,10 @@ export function useConfigManager() {
     (name: string | null) => dispatch({ type: "SET_SELECTED_MODULE", name }),
     [],
   );
+  const setExpandedModule = useCallback(
+    (index: number | null) => dispatch({ type: "SET_EXPANDED_MODULE", index }),
+    [],
+  );
   const setEditingAction = useCallback(
     (index: number) => dispatch({ type: "SET_EDITING_ACTION", index }),
     [],
@@ -222,6 +246,7 @@ export function useConfigManager() {
     setStatus,
     setAvailableModules,
     setSelectedModule,
+    setExpandedModule,
     setEditingAction,
     setVariables,
     setCaptureVars,

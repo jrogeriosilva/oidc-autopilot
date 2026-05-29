@@ -13,6 +13,15 @@
   opacity: 0.4;
 }
 
+/* Sliding strip on RUNNING module cards */
+@keyframes run-strip-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.run-strip {
+  animation: run-strip-slide 1.4s linear infinite;
+}
+
 /* Drag-and-drop indicators */
 .drag-over-above {
   border-top: 2px solid #58a6ff;

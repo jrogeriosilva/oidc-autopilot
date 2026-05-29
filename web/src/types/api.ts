@@ -11,6 +11,8 @@ export interface ModuleCard {
   status: string;
   result: string;
   lastMessage: string;
+  durationMs?: number | null;
+  currentAction?: string | null;
 }
 
 export interface EnvDefaults {

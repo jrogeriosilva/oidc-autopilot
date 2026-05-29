@@ -1,4 +1,4 @@
-import { useReducer, useEffect, useCallback } from "react";
+import { useReducer, useEffect, useCallback, useState, useRef } from "react";
 import type {
   LogLine,
   ModuleCard,
@@ -14,6 +14,8 @@ interface DashboardState {
   cards: ModuleCard[];
   logs: LogLine[];
   outcome: ExecutionSummary | null;
+  startedAt: number | null;
+  cardStarts: Record<string, number>;
 }
 
 type Action =
@@ -32,7 +34,7 @@ const LOG_CAP = 5_000;
 function reducer(state: DashboardState, action: Action): DashboardState {
   switch (action.type) {
     case "SET_RUNNING":
-      return { status: "running", cards: [], logs: [], outcome: null };
+      return { status: "running", cards: [], logs: [], outcome: null, startedAt: Date.now(), cardStarts: {} };
 
     case "ADD_LOG": {
       const logs =
@@ -46,13 +48,26 @@ function reducer(state: DashboardState, action: Action): DashboardState {
       return { ...state, logs: [] };
 
     case "SET_MODULE_LIST":
-      return { ...state, cards: action.cards };
+      return { ...state, cards: action.cards, cardStarts: {} };
 
     case "UPDATE_MODULE": {
       const cards = state.cards.map((c) =>
         c.name === action.card.name ? { ...c, ...action.card } : c,
       );
-      return { ...state, cards };
+      const status = action.card.status;
+      const isActive = status && status !== "PENDING" && status !== "CREATED";
+      const isDone = status === "FINISHED" || status === "INTERRUPTED" || status === "ERROR";
+      const cardStarts = { ...state.cardStarts };
+      const existing = cardStarts[action.card.name];
+      if (isActive && !existing && !isDone) {
+        cardStarts[action.card.name] = Date.now();
+      }
+      // Stamp final duration on the card if finishing.
+      if (isDone && existing) {
+        const idx = cards.findIndex((c) => c.name === action.card.name);
+        if (idx >= 0) cards[idx] = { ...cards[idx], durationMs: Date.now() - existing };
+      }
+      return { ...state, cards, cardStarts };
     }
 
     case "PLAN_DONE": {
@@ -95,6 +110,8 @@ const initialState: DashboardState = {
   cards: [],
   logs: [],
   outcome: null,
+  startedAt: null,
+  cardStarts: {},
 };
 
 export function useDashboard() {
@@ -149,5 +166,39 @@ export function useDashboard() {
   const setError = useCallback(() => dispatch({ type: "ERROR" }), []);
   const clearLogs = useCallback(() => dispatch({ type: "CLEAR_LOGS" }), []);
 
-  return { ...state, setRunning, setError, clearLogs };
+  // Live tick to drive elapsed time + per-card durations.
+  const [now, setNow] = useState(() => Date.now());
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (state.status === "running") {
+      tickRef.current = setInterval(() => setNow(Date.now()), 500);
+      return () => {
+        if (tickRef.current) clearInterval(tickRef.current);
+        tickRef.current = null;
+      };
+    }
+    if (tickRef.current) {
+      clearInterval(tickRef.current);
+      tickRef.current = null;
+    }
+  }, [state.status]);
+
+  const elapsedMs = state.startedAt ? now - state.startedAt : 0;
+
+  // Decorate cards with live durationMs based on cardStarts (final stamp wins).
+  const decoratedCards: ModuleCard[] = state.cards.map((c) => {
+    if (c.durationMs != null) return c;
+    const start = state.cardStarts[c.name];
+    if (start == null) return c;
+    return { ...c, durationMs: now - start };
+  });
+
+  return {
+    ...state,
+    cards: decoratedCards,
+    elapsedMs,
+    setRunning,
+    setError,
+    clearLogs,
+  };
 }
