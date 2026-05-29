@@ -2,6 +2,7 @@ import { useState } from "react";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Autocomplete from "@mui/material/Autocomplete";
 import Button from "@mui/material/Button";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
@@ -10,6 +11,8 @@ import ListItemText from "@mui/material/ListItemText";
 import Checkbox from "@mui/material/Checkbox";
 import Typography from "@mui/material/Typography";
 import type { ModuleConfig } from "../../types/api";
+
+const KNOWN_PLAN_NAMES = ["fapi1-advanced-final-test-plan"];
 
 interface Props {
   availableModules: string[];
@@ -41,12 +44,20 @@ export default function AvailableModulesPanel({
   return (
     <>
       <Stack direction="row" spacing={0.75} sx={{ mb: 1 }}>
-        <TextField
+        <Autocomplete
+          freeSolo
+          options={KNOWN_PLAN_NAMES}
           value={planName}
-          onChange={(e) => setPlanName(e.target.value)}
-          placeholder="e.g. fapi1-advanced-final-test-plan"
+          onChange={(_, value) => setPlanName(value ?? "")}
+          onInputChange={(_, value) => setPlanName(value)}
           size="small"
           fullWidth
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="e.g. fapi1-advanced-final-test-plan"
+            />
+          )}
         />
         <Button
           variant="outlined"
