@@ -45,15 +45,7 @@ export function deriveFilterCounts(cards: ModuleCard[]): Record<FilterId, number
 }
 
 export function applyFilter(cards: ModuleCard[], id: FilterId): ModuleCard[] {
-  if (id === "all") {
-    return [...cards].sort((a, b) => {
-      const aActive = a.status === "RUNNING" || a.status === "WAITING";
-      const bActive = b.status === "RUNNING" || b.status === "WAITING";
-      if (aActive && !bActive) return -1;
-      if (!aActive && bActive) return 1;
-      return 0;
-    });
-  }
+  if (id === "all") return cards;
   return cards.filter((c) => {
     if (id === "running") return c.status === "RUNNING";
     if (id === "waiting") return c.status === "WAITING";

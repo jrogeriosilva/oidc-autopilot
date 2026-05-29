@@ -50,7 +50,8 @@ export default function ModuleCard({ card }: Props) {
 
   const isRunning = card.status === "RUNNING";
   const isWaiting = card.status === "WAITING";
-  const isPulsing = isRunning || isWaiting;
+  const isCreated = card.status === "CREATED";
+  const isPulsing = isRunning || isWaiting || isCreated;
   const duration = formatDuration(card.durationMs);
 
   return (
@@ -142,7 +143,7 @@ export default function ModuleCard({ card }: Props) {
           )}
         </Box>
       </CardContent>
-      {isRunning && (
+      {(isRunning || isCreated) && (
         <Box
           aria-hidden
           sx={{
@@ -151,7 +152,7 @@ export default function ModuleCard({ card }: Props) {
             right: 0,
             bottom: 0,
             height: 2,
-            bgcolor: "rgba(144,202,249,0.12)",
+            bgcolor: isCreated ? "rgba(187,222,251,0.10)" : "rgba(144,202,249,0.12)",
             overflow: "hidden",
           }}
         >
@@ -160,7 +161,9 @@ export default function ModuleCard({ card }: Props) {
             sx={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(90deg, transparent 0%, #90caf9 50%, transparent 100%)",
+              background: isCreated
+                ? "linear-gradient(90deg, transparent 0%, #bbdefb 50%, transparent 100%)"
+                : "linear-gradient(90deg, transparent 0%, #90caf9 50%, transparent 100%)",
             }}
           />
         </Box>

@@ -305,9 +305,11 @@ export class OidcAutopilotDashboard {
       return;
     }
 
-    // Detect module completion
-    if (line.message === "Module execution completed") {
+    // Detect module completion (e.g. "Module execution completed: PASSED")
+    const completionMatch = line.message.match(/^Module execution completed(?::\s*(\w+))?$/);
+    if (completionMatch) {
       card.status = "FINISHED";
+      if (completionMatch[1]) card.result = completionMatch[1];
       this.broadcastModuleUpdate(card);
     }
   }
